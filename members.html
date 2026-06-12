@@ -40,12 +40,83 @@
           <h1>Members</h1>
           <p class="subtitle">Register and manage gym members.</p>
         </div>
+        <button class="btn btn-primary" id="addMemberBtn">+ Add member</button>
       </div>
-      <!-- Member management UI is added in IAP-38 / IAP-39. -->
+
+      <!-- The table body is filled by renderMembers() from localStorage. -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Membership</th>
+              <th>Start date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="membersBody"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
+  <!-- ADD / EDIT MEMBER MODAL (hidden until opened). -->
+  <div class="modal-backdrop" id="memberModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="memberModalTitle">
+      <div class="modal-head">
+        <h2 id="memberModalTitle">Add member</h2>
+        <button class="modal-close" id="memberModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="memberForm" novalidate>
+        <div class="field">
+          <label for="mName">Full name</label>
+          <input type="text" id="mName" placeholder="e.g. James Carter" />
+          <span class="field-error" id="mNameError"></span>
+        </div>
+        <div class="field">
+          <label for="mEmail">Email</label>
+          <input type="text" id="mEmail" placeholder="e.g. james@email.com" />
+          <span class="field-error" id="mEmailError"></span>
+        </div>
+        <div class="field">
+          <label for="mPhone">Phone number</label>
+          <input type="text" id="mPhone" placeholder="e.g. +1 202 555 0143" />
+          <span class="field-error" id="mPhoneError"></span>
+        </div>
+        <div class="field">
+          <label for="mType">Membership type</label>
+          <select id="mType">
+            <option value="">Select a type…</option>
+            <option value="Basic">Basic</option>
+            <option value="Premium">Premium</option>
+            <option value="VIP">VIP</option>
+          </select>
+          <span class="field-error" id="mTypeError"></span>
+        </div>
+        <div class="field">
+          <label for="mStart">Start date</label>
+          <input type="date" id="mStart" />
+          <span class="field-error" id="mStartError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="memberCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/data.js"></script>
-  <script>mountSidebarUser();</script>
+  <script src="js/toast.js"></script>
+  <script src="js/members.js"></script>
+  <script>
+    mountSidebarUser();
+    renderMembers();   // draw the table on load
+    initMemberPage();  // wire the Add button, modal and form
+  </script>
 </body>
 </html>
