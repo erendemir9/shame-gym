@@ -38,6 +38,10 @@ function formatDate(isoDate) {
   return parseInt(parts[2], 10) + " " + months[parseInt(parts[1], 10) - 1] + " " + parts[0];
 }
 
+// Holds the id of the member being edited, or null when adding a new one.
+// saveMember() uses this to decide between "add" and "update".
+var editingMemberId = null;
+
 // ---------- RENDERING ----------
 
 // Pick a badge colour from the membership type.
@@ -72,9 +76,16 @@ function renderMemberRow(member) {
 
   tr.appendChild(textCell(formatDate(member.startDate)));
 
-  // Actions column (Edit button is added in IAP-39).
+  // Actions column: an Edit button that opens the modal pre-filled.
   var actionsTd = document.createElement("td");
   actionsTd.className = "row-actions";
+  var editBtn = document.createElement("button");
+  editBtn.className = "btn btn-ghost btn-sm";
+  editBtn.textContent = "Edit";
+  editBtn.addEventListener("click", function () {
+    openMemberModalForEdit(member);
+  });
+  actionsTd.appendChild(editBtn);
   tr.appendChild(actionsTd);
 
   return tr;
@@ -106,8 +117,22 @@ function renderMembers() {
 
 // Open the modal ready to add a new member (empty fields).
 function openMemberModal() {
+  editingMemberId = null; // "add" mode
   document.getElementById("memberModalTitle").textContent = "Add member";
   document.getElementById("memberForm").reset();
+  clearAllMemberErrors();
+  document.getElementById("memberModal").classList.add("open");
+}
+
+// Open the modal pre-filled with an existing member's data ("edit" mode).
+function openMemberModalForEdit(member) {
+  editingMemberId = member.id; // remember which member we are editing
+  document.getElementById("memberModalTitle").textContent = "Edit member";
+  document.getElementById("mName").value = member.name;
+  document.getElementById("mEmail").value = member.email;
+  document.getElementById("mPhone").value = member.phone;
+  document.getElementById("mType").value = member.type;
+  document.getElementById("mStart").value = member.startDate;
   clearAllMemberErrors();
   document.getElementById("memberModal").classList.add("open");
 }
@@ -165,24 +190,44 @@ function validateMemberForm() {
   return ok;
 }
 
-// Save a new member: validate, push to the array, persist, re-render, toast.
+// Save the form: validate, then either add a new member or update an
+// existing one (decided by editingMemberId), persist, re-render, toast.
 function saveMember() {
   if (!validateMemberForm()) return;
 
-  var members = getMembers();
-  members.push({
-    id: generateId(),
+  // Collect the field values once.
+  var data = {
     name: document.getElementById("mName").value.trim(),
     email: document.getElementById("mEmail").value.trim(),
     phone: document.getElementById("mPhone").value.trim(),
     type: document.getElementById("mType").value,
     startDate: document.getElementById("mStart").value
-  });
-  saveMembers(members);
+  };
 
+  var members = getMembers();
+
+  if (editingMemberId) {
+    // EDIT: find the matching member and overwrite its fields.
+    for (var i = 0; i < members.length; i++) {
+      if (members[i].id === editingMemberId) {
+        members[i].name = data.name;
+        members[i].email = data.email;
+        members[i].phone = data.phone;
+        members[i].type = data.type;
+        members[i].startDate = data.startDate;
+        break;
+      }
+    }
+  } else {
+    // ADD: create a new member with a fresh id.
+    data.id = generateId();
+    members.push(data);
+  }
+
+  saveMembers(members);
   closeMemberModal();
   renderMembers();
-  showToast("Member added successfully", "success");
+  showToast(editingMemberId ? "Member updated successfully" : "Member added successfully", "success");
 }
 
 // ---------- WIRING ----------
