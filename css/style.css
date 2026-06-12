@@ -1,0 +1,689 @@
+/* ============================================================
+   S.H.A.M.E GYM — shared stylesheet
+   One file shared by every page. Organised top-to-bottom as:
+   1) Theme variables  2) Base/reset  3) Layout (sidebar + main)
+   4) Components (buttons, forms, cards, tables, badges, modal)
+   5) Login + splash  6) Toast  7) Animations + reduced motion
+   ============================================================ */
+
+/* ---------- 1) THEME VARIABLES ---------- */
+/* All colours and shared sizes live here so the whole app can be
+   re-themed from one place. */
+:root {
+  --bg: #0A0A0C;            /* near-black main background */
+  --bg-elevated: #121218;   /* card / panel surfaces */
+  --bg-hover: #1A1A22;      /* hover state for rows and cards */
+  --navy: #16213E;          /* deep navy accent for gradients */
+  --primary: #2E5BFF;       /* athletic blue: buttons, active nav, links */
+  --purple: #5B2EAE;        /* dark purple secondary accent */
+  --silver: #C7CCD4;        /* secondary text */
+  --white: #F5F7FA;         /* headings and primary text */
+  --danger: #FF4D5E;        /* errors */
+  --success: #2EE6A8;       /* success states */
+  --border: rgba(255, 255, 255, 0.08); /* 1px borders */
+
+  /* Spacing scale (8 / 16 / 24 / 32) keeps gaps consistent everywhere. */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+
+  --radius-card: 12px;
+  --radius-control: 10px;
+
+  --font-display: "Barlow Condensed", system-ui, sans-serif; /* headings */
+  --font-body: "Inter", system-ui, sans-serif;               /* body / UI */
+}
+
+/* ---------- 2) BASE / RESET ---------- */
+/* Light reset so margins and box sizing behave the same in all browsers. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--white);
+  background-color: var(--bg);
+  /* Layered gradients give a non-flat background: a faint blue glow top-left,
+     a purple hint bottom-right, over the near-black base. */
+  background-image:
+    radial-gradient(900px 600px at 15% -10%, rgba(46, 91, 255, 0.10), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(91, 46, 174, 0.10), transparent 60%),
+    linear-gradient(160deg, #0A0A0C 0%, #0B0E1A 55%, #0A0A0C 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.1;
+}
+
+a { color: var(--primary); text-decoration: none; }
+
+/* ---------- 3) LAYOUT: SIDEBAR + MAIN ---------- */
+/* Every internal page uses this shell: a fixed sidebar on the left and a
+   scrolling main area on the right. */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  background-color: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-2);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-brand img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+/* The wordmark uses a silver-to-blue metallic gradient clipped to the text,
+   echoing the chrome look of the logo. */
+.sidebar-brand .wordmark {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: linear-gradient(100deg, var(--silver), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-3);
+  flex: 1; /* pushes the user box to the bottom */
+}
+
+.nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  color: var(--silver);
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: var(--bg-hover);
+  color: var(--white);
+}
+
+/* The active link gets a blue background tint and an animated left bar. */
+.nav-link.active {
+  background-color: rgba(46, 91, 255, 0.14);
+  color: var(--white);
+}
+
+.nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(var(--primary), var(--purple));
+  animation: slide-in-left 0.3s ease;
+}
+
+/* Logged-in user block pinned to the bottom of the sidebar. */
+.sidebar-user {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+.sidebar-user .user-name { font-weight: 600; color: var(--white); }
+.sidebar-user .user-role {
+  font-size: 12px;
+  color: var(--silver);
+  text-transform: capitalize;
+}
+
+.main {
+  margin-left: 260px; /* clears the fixed sidebar */
+  flex: 1;
+  padding: var(--space-4);
+  width: calc(100% - 260px);
+}
+
+/* Page header: title on the left, optional action button on the right. */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  gap: var(--space-2);
+}
+
+.page-header h1 { font-size: 34px; }
+.page-header .subtitle { color: var(--silver); margin-top: 4px; }
+
+/* ---------- 4) COMPONENTS ---------- */
+
+/* Buttons share one base; modifiers change colour. */
+.btn {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  color: var(--white);
+  background-color: var(--bg-hover);
+  transition: transform 0.12s ease, box-shadow 0.2s ease,
+              background-color 0.2s ease;
+}
+
+.btn:hover { transform: translateY(-2px); }     /* hover lift */
+.btn:active { transform: translateY(0); }        /* press-down */
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: linear-gradient(120deg, var(--primary), #1E45D8);
+  border-color: rgba(46, 91, 255, 0.6);
+}
+.btn-primary:hover { box-shadow: 0 6px 20px rgba(46, 91, 255, 0.35); } /* blue glow */
+
+.btn-ghost {
+  background-color: transparent;
+  border-color: var(--border);
+  color: var(--silver);
+}
+.btn-ghost:hover { color: var(--white); background-color: var(--bg-hover); }
+
+.btn-danger { background-color: transparent; border-color: rgba(255,77,94,0.4); color: var(--danger); }
+.btn-danger:hover { background-color: rgba(255, 77, 94, 0.12); }
+
+.btn-sm { padding: 7px 12px; font-size: 13px; }
+.btn-block { width: 100%; }
+
+/* Generic elevated panel/card surface. */
+.card {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+}
+
+/* Dashboard quick-stat cards. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.stat-card {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.2s ease, transform 0.12s ease;
+}
+.stat-card:hover { background-color: var(--bg-hover); transform: translateY(-2px); }
+
+.stat-card .stat-label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--silver);
+}
+.stat-card .stat-value {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 700;
+  background: linear-gradient(120deg, var(--white), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Forms: labels, inputs and inline error messages. */
+.field { margin-bottom: var(--space-2); }
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--silver);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 11px 13px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input::placeholder { color: rgba(199, 204, 212, 0.4); }
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(46, 91, 255, 0.25); /* focus ring */
+}
+
+/* Invalid input: red border + a one-shot shake (added by JS). */
+.field input.invalid,
+.field select.invalid { border-color: var(--danger); }
+.shake { animation: shake 0.35s ease; }
+
+.field-error {
+  display: block;
+  min-height: 16px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--danger);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.field-error.show { opacity: 1; }
+
+/* Tables for members and schedules. */
+.table-wrap {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+thead th {
+  text-align: left;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  color: var(--silver);
+  padding: 14px var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+tbody td {
+  padding: 14px var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background-color 0.2s ease; }
+tbody tr:hover { background-color: var(--bg-hover); } /* row hover */
+
+.row-actions { display: flex; gap: var(--space-1); }
+
+/* Coloured membership / specialization badges. */
+.badge {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.badge-silver { color: var(--silver); background: rgba(199,204,212,0.12); border-color: rgba(199,204,212,0.25); }
+.badge-blue   { color: #9DB4FF;     background: rgba(46,91,255,0.15);   border-color: rgba(46,91,255,0.4); }
+.badge-purple { color: #C2A6F5;     background: rgba(91,46,174,0.18);   border-color: rgba(91,46,174,0.45); }
+
+/* Trainer cards grid (different presentation from the tables). */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.trainer-card {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  transition: background-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
+}
+.trainer-card:hover {
+  background-color: var(--bg-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Circular monogram avatar built from the trainer's initials. */
+.trainer-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  margin-bottom: var(--space-2);
+}
+
+.trainer-card .trainer-name { font-family: var(--font-display); font-size: 22px; text-transform: uppercase; }
+.trainer-card .trainer-contact { color: var(--silver); font-size: 13px; margin-top: var(--space-2); }
+.trainer-card .trainer-meta { margin-top: var(--space-2); display: flex; gap: var(--space-1); flex-wrap: wrap; align-items: center; }
+
+/* Empty-state message shown when a list has no items. */
+.empty-state {
+  text-align: center;
+  color: var(--silver);
+  padding: var(--space-4);
+}
+
+/* Modal dialog: dimmed backdrop + centred panel. Hidden by default. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.7);
+  backdrop-filter: blur(3px);
+  display: none;             /* toggled to flex by JS */
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  z-index: 50;
+}
+.modal-backdrop.open { display: flex; animation: fade-in 0.25s ease; }
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: scale-in 0.25s ease;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.modal-head h2 { font-size: 26px; }
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--silver);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--white); }
+.modal-actions { display: flex; gap: var(--space-1); justify-content: flex-end; margin-top: var(--space-3); }
+
+/* ---------- 5) LOGIN + SPLASH ---------- */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+/* Glassy login card with a faint blue plate-glow behind it. */
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(18, 18, 24, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+.login-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 16px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto var(--space-2);
+}
+
+.login-card h1 { font-size: 32px; text-align: center; }
+.login-card .login-sub {
+  text-align: center;
+  color: var(--silver);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+/* Form-level error banner (wrong credentials). */
+.form-error {
+  display: none;
+  background: rgba(255, 77, 94, 0.12);
+  border: 1px solid rgba(255, 77, 94, 0.4);
+  color: var(--danger);
+  border-radius: var(--radius-control);
+  padding: 10px 13px;
+  font-size: 13px;
+  margin-bottom: var(--space-2);
+}
+.form-error.show { display: block; animation: fade-in 0.25s ease; }
+
+/* Collapsible demo-credentials hint (native <details>). */
+.demo-hint {
+  margin-top: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.demo-hint summary {
+  cursor: pointer;
+  color: var(--silver);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.demo-hint code { color: #9DB4FF; }
+.demo-hint ul { list-style: none; margin-top: var(--space-1); }
+.demo-hint li { padding: 3px 0; color: var(--silver); }
+
+/* Full-screen splash overlay shown once per session. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: radial-gradient(circle at 50% 45%, #0E1430, var(--bg) 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer; /* click anywhere to skip */
+}
+.splash.hide { animation: splash-out 0.6s ease forwards; }
+
+.splash img {
+  width: 180px;
+  height: 180px;
+  border-radius: 24px;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(0.7);
+  animation: logo-pop 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.splash-tagline {
+  margin-top: var(--space-3);
+  font-family: var(--font-display);
+  font-size: clamp(14px, 3vw, 22px);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--silver);
+  opacity: 0;
+  transform: translateY(12px);
+  animation: tagline-in 1s ease 1s forwards; /* starts after the logo */
+  text-align: center;
+  padding: 0 var(--space-2);
+}
+.splash-skip {
+  position: absolute;
+  bottom: var(--space-4);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(199, 204, 212, 0.5);
+}
+
+/* ---------- 6) TOAST ---------- */
+/* One container, top-right, shared by every page through showToast(). */
+.toast-container {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.toast {
+  min-width: 240px;
+  max-width: 320px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-control);
+  padding: 13px 16px;
+  font-size: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.3s ease;
+}
+.toast.toast-success { border-left-color: var(--success); }
+.toast.toast-error { border-left-color: var(--danger); }
+.toast.leaving { animation: toast-out 0.3s ease forwards; }
+
+/* ---------- 7) ANIMATIONS ---------- */
+/* Subtle fade+slide applied to main content on every page load. */
+.page-enter { animation: page-enter 0.3s ease; }
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(30px); }
+}
+@keyframes logo-pop {
+  0%   { opacity: 0; transform: scale(0.7); }
+  60%  { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes tagline-in {
+  from { opacity: 0; transform: translateY(12px); letter-spacing: 0.5em; }
+  to   { opacity: 1; transform: translateY(0); letter-spacing: 0.35em; }
+}
+@keyframes splash-out {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+
+/* Accessibility: people who prefer reduced motion get no decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- RESPONSIVE: collapse sidebar on small screens ---------- */
+@media (max-width: 760px) {
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .nav { flex-direction: row; flex-wrap: wrap; margin-top: 0; flex: 1 1 100%; }
+  .sidebar-user { flex: 1 1 100%; }
+  .main { margin-left: 0; width: 100%; padding: var(--space-2); }
+  .app { flex-direction: column; }
+}
