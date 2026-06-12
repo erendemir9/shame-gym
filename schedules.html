@@ -40,12 +40,86 @@
           <h1>Schedules</h1>
           <p class="subtitle">Create class sessions and view the timetable.</p>
         </div>
+        <button class="btn btn-primary" id="addClassBtn">+ Create class</button>
       </div>
-      <!-- Schedule management UI is added in IAP-43. -->
+
+      <!-- The table body is filled by renderSchedules() from localStorage. -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Trainer</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Duration</th>
+              <th>Capacity</th>
+            </tr>
+          </thead>
+          <tbody id="schedulesBody"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
+  <!-- CREATE CLASS MODAL (hidden until opened). -->
+  <div class="modal-backdrop" id="classModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="classModalTitle">
+      <div class="modal-head">
+        <h2 id="classModalTitle">Create class</h2>
+        <button class="modal-close" id="classModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="classForm" novalidate>
+        <div class="field">
+          <label for="cName">Class name</label>
+          <input type="text" id="cName" placeholder="e.g. Spinning Burn" />
+          <span class="field-error" id="cNameError"></span>
+        </div>
+        <div class="field">
+          <label for="cTrainer">Trainer</label>
+          <!-- Options are filled from the trainers saved in localStorage. -->
+          <select id="cTrainer">
+            <option value="">Select a trainer…</option>
+          </select>
+          <span class="field-error" id="cTrainerError"></span>
+        </div>
+        <div class="field">
+          <label for="cDate">Date</label>
+          <input type="date" id="cDate" />
+          <span class="field-error" id="cDateError"></span>
+        </div>
+        <div class="field">
+          <label for="cTime">Time</label>
+          <input type="time" id="cTime" />
+          <span class="field-error" id="cTimeError"></span>
+        </div>
+        <div class="field">
+          <label for="cDuration">Duration (minutes)</label>
+          <input type="number" id="cDuration" min="1" placeholder="e.g. 45" />
+          <span class="field-error" id="cDurationError"></span>
+        </div>
+        <div class="field">
+          <label for="cCapacity">Capacity</label>
+          <input type="number" id="cCapacity" min="1" placeholder="e.g. 20" />
+          <span class="field-error" id="cCapacityError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="classCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save class</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/data.js"></script>
-  <script>mountSidebarUser();</script>
+  <script src="js/toast.js"></script>
+  <script src="js/schedules.js"></script>
+  <script>
+    mountSidebarUser();
+    renderSchedules();  // draw the table on load
+    initSchedulePage(); // wire the Create button, modal and form
+  </script>
 </body>
 </html>
