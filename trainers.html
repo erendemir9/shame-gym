@@ -40,12 +40,77 @@
           <h1>Trainers</h1>
           <p class="subtitle">Add trainers and view the coaching team.</p>
         </div>
+        <button class="btn btn-primary" id="addTrainerBtn">+ Add trainer</button>
       </div>
-      <!-- Trainer management UI is added in IAP-40. -->
+
+      <!-- Cards are filled by renderTrainers() from localStorage. -->
+      <div class="cards-grid" id="trainersGrid"></div>
     </main>
   </div>
 
+  <!-- ADD TRAINER MODAL (hidden until opened). -->
+  <div class="modal-backdrop" id="trainerModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trainerModalTitle">
+      <div class="modal-head">
+        <h2 id="trainerModalTitle">Add trainer</h2>
+        <button class="modal-close" id="trainerModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="trainerForm" novalidate>
+        <div class="field">
+          <label for="tName">Full name</label>
+          <input type="text" id="tName" placeholder="e.g. Marcus Hale" />
+          <span class="field-error" id="tNameError"></span>
+        </div>
+        <div class="field">
+          <label for="tEmail">Email</label>
+          <input type="text" id="tEmail" placeholder="e.g. marcus@shame.gym" />
+          <span class="field-error" id="tEmailError"></span>
+        </div>
+        <div class="field">
+          <label for="tPhone">Phone number</label>
+          <input type="text" id="tPhone" placeholder="e.g. +1 202 555 0211" />
+          <span class="field-error" id="tPhoneError"></span>
+        </div>
+        <div class="field">
+          <label for="tSpec">Specialization</label>
+          <select id="tSpec">
+            <option value="">Select a specialization…</option>
+            <option value="Strength">Strength</option>
+            <option value="Cardio">Cardio</option>
+            <option value="CrossFit">CrossFit</option>
+            <option value="Yoga">Yoga</option>
+            <option value="Boxing">Boxing</option>
+          </select>
+          <span class="field-error" id="tSpecError"></span>
+        </div>
+        <div class="field">
+          <label for="tAvail">Availability</label>
+          <select id="tAvail">
+            <option value="">Select availability…</option>
+            <option value="Morning">Morning</option>
+            <option value="Evening">Evening</option>
+            <option value="Weekend">Weekend</option>
+            <option value="Full-time">Full-time</option>
+          </select>
+          <span class="field-error" id="tAvailError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="trainerCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save trainer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/data.js"></script>
-  <script>mountSidebarUser();</script>
+  <script src="js/toast.js"></script>
+  <script src="js/trainers.js"></script>
+  <script>
+    mountSidebarUser();
+    renderTrainers();   // draw the cards on load
+    initTrainerPage();  // wire the Add button, modal and form
+  </script>
 </body>
 </html>
