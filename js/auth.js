@@ -62,3 +62,14 @@ function logout() {
   clearSession();
   window.location.replace("index.html");
 }
+
+// Fill the sidebar's user name/role and wire the Logout button.
+// Called once on every internal page so the sidebar behaves the same way.
+function mountSidebarUser() {
+  var session = getSession();
+  if (!session) return; // requireAuth() already handles the no-session case
+
+  document.getElementById("sidebarUserName").textContent = session.name;
+  document.getElementById("sidebarUserRole").textContent = session.role;
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- ROUTE GUARD: runs before the page renders. No session -> back to login. -->
+  <script src="js/auth.js"></script>
+  <script>requireAuth();</script>
+</head>
+<body>
+  <div class="app">
+
+    <!-- SHARED SIDEBAR (same markup on every internal page; only the
+         active link changes). -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+
+      <nav class="nav">
+        <a class="nav-link active" href="dashboard.html">Dashboard</a>
+        <a class="nav-link" href="members.html">Members</a>
+        <a class="nav-link" href="trainers.html">Trainers</a>
+        <a class="nav-link" href="schedules.html">Schedules</a>
+      </nav>
+
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <div class="user-role" id="sidebarUserRole">—</div>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1 id="welcomeTitle">Welcome back</h1>
+          <p class="subtitle">Here is what is happening at S.H.A.M.E today.</p>
+        </div>
+      </div>
+
+      <!-- Quick stats: numbers are computed from localStorage at load. -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total members</div>
+          <div class="stat-value" id="statMembers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Trainers</div>
+          <div class="stat-value" id="statTrainers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Scheduled classes</div>
+          <div class="stat-value" id="statClasses">0</div>
+        </div>
+      </div>
+
+      <section class="card">
+        <h2 style="font-size:24px;margin-bottom:8px;">Quick actions</h2>
+        <p class="subtitle" style="margin-bottom:16px;">Jump straight to the most common tasks.</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <a class="btn btn-primary" href="members.html">Manage members</a>
+          <a class="btn btn-ghost" href="trainers.html">Manage trainers</a>
+          <a class="btn btn-ghost" href="schedules.html">Manage schedules</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script>
+    // Fill the sidebar user box and wire logout.
+    mountSidebarUser();
+
+    // Personalise the greeting with the logged-in user's name.
+    document.getElementById("welcomeTitle").textContent =
+      "Welcome back, " + getSession().name;
+
+    // Compute the quick stats straight from localStorage (array lengths).
+    document.getElementById("statMembers").textContent = getMembers().length;
+    document.getElementById("statTrainers").textContent = getTrainers().length;
+    document.getElementById("statClasses").textContent = getSchedules().length;
+  </script>
+</body>
+</html>

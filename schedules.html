@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Schedules</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- ROUTE GUARD: runs before the page renders. -->
+  <script src="js/auth.js"></script>
+  <script>requireAuth();</script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav">
+        <a class="nav-link" href="dashboard.html">Dashboard</a>
+        <a class="nav-link" href="members.html">Members</a>
+        <a class="nav-link" href="trainers.html">Trainers</a>
+        <a class="nav-link active" href="schedules.html">Schedules</a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <div class="user-role" id="sidebarUserRole">—</div>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Schedules</h1>
+          <p class="subtitle">Create class sessions and view the timetable.</p>
+        </div>
+      </div>
+      <!-- Schedule management UI is added in IAP-43. -->
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script>mountSidebarUser();</script>
+</body>
+</html>
