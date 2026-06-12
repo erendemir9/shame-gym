@@ -38,6 +38,28 @@ function getInitials(name) {
   return (first + last).toUpperCase();
 }
 
+// Fill a container with a centered empty-state: a title, a message, and an
+// optional call-to-action button (ctaLabel is only passed for admins).
+function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
+  container.innerHTML = "";
+  var t = document.createElement("div");
+  t.className = "empty-title";
+  t.textContent = title;
+  container.appendChild(t);
+
+  var m = document.createElement("div");
+  m.textContent = message;
+  container.appendChild(m);
+
+  if (ctaLabel) {
+    var btn = document.createElement("button");
+    btn.className = "btn btn-primary";
+    btn.textContent = ctaLabel;
+    btn.addEventListener("click", ctaHandler);
+    container.appendChild(btn);
+  }
+}
+
 // ---------- RENDERING ----------
 
 // Build one trainer card element.
@@ -89,9 +111,13 @@ function renderTrainers() {
   grid.innerHTML = ""; // clear before redrawing
 
   if (trainers.length === 0) {
-    var empty = document.createElement("p");
+    var empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No trainers yet. Add your first trainer.";
+    // The grid is a CSS grid; let the empty state span the full width.
+    empty.style.gridColumn = "1 / -1";
+    renderEmptyState(empty, "No trainers yet",
+      canManageTrainers() ? "Add your first trainer to build the team." : "There are no trainers to show.",
+      canManageTrainers() ? "Add trainer" : null, openTrainerModal);
     grid.appendChild(empty);
     return;
   }
@@ -186,7 +212,14 @@ function saveTrainer() {
 // ---------- WIRING ----------
 
 // Connect the Add button, modal buttons and form submit. Called once on load.
+// Non-admins get a read-only page: we REMOVE the add button entirely.
 function initTrainerPage() {
+  if (!canManageTrainers()) {
+    var addBtn = document.getElementById("addTrainerBtn");
+    if (addBtn) addBtn.remove();
+    return; // nothing to wire for read-only users
+  }
+
   document.getElementById("addTrainerBtn").addEventListener("click", openTrainerModal);
   document.getElementById("trainerModalClose").addEventListener("click", closeTrainerModal);
   document.getElementById("trainerCancel").addEventListener("click", closeTrainerModal);

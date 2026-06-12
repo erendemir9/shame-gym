@@ -38,6 +38,28 @@ function formatDate(isoDate) {
   return parseInt(parts[2], 10) + " " + months[parseInt(parts[1], 10) - 1] + " " + parts[0];
 }
 
+// Fill a container with a centered empty-state: a title, a message, and an
+// optional call-to-action button (ctaLabel is only passed for admins).
+function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
+  container.innerHTML = "";
+  var t = document.createElement("div");
+  t.className = "empty-title";
+  t.textContent = title;
+  container.appendChild(t);
+
+  var m = document.createElement("div");
+  m.textContent = message;
+  container.appendChild(m);
+
+  if (ctaLabel) {
+    var btn = document.createElement("button");
+    btn.className = "btn btn-primary";
+    btn.textContent = ctaLabel;
+    btn.addEventListener("click", ctaHandler);
+    container.appendChild(btn);
+  }
+}
+
 // Holds the id of the member being edited, or null when adding a new one.
 // saveMember() uses this to decide between "add" and "update".
 var editingMemberId = null;
@@ -76,17 +98,19 @@ function renderMemberRow(member) {
 
   tr.appendChild(textCell(formatDate(member.startDate)));
 
-  // Actions column: an Edit button that opens the modal pre-filled.
-  var actionsTd = document.createElement("td");
-  actionsTd.className = "row-actions";
-  var editBtn = document.createElement("button");
-  editBtn.className = "btn btn-ghost btn-sm";
-  editBtn.textContent = "Edit";
-  editBtn.addEventListener("click", function () {
-    openMemberModalForEdit(member);
-  });
-  actionsTd.appendChild(editBtn);
-  tr.appendChild(actionsTd);
+  // Actions column: only admins (canManageMembers) get an Edit button.
+  if (canManageMembers()) {
+    var actionsTd = document.createElement("td");
+    actionsTd.className = "row-actions";
+    var editBtn = document.createElement("button");
+    editBtn.className = "btn btn-ghost btn-sm";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", function () {
+      openMemberModalForEdit(member);
+    });
+    actionsTd.appendChild(editBtn);
+    tr.appendChild(actionsTd);
+  }
 
   return tr;
 }
@@ -98,11 +122,16 @@ function renderMembers() {
   body.innerHTML = ""; // clear before redrawing
 
   if (members.length === 0) {
+    // Span however many columns the header currently has.
+    var table = body.closest("table");
+    var colCount = table.querySelectorAll("thead th").length;
     var emptyRow = document.createElement("tr");
     var cell = document.createElement("td");
-    cell.colSpan = 6;
+    cell.colSpan = colCount;
     cell.className = "empty-state";
-    cell.textContent = "No members yet. Add your first member to get started.";
+    renderEmptyState(cell, "No members yet",
+      canManageMembers() ? "Add your first member to get started." : "There are no members to show.",
+      canManageMembers() ? "Add member" : null, openMemberModal);
     emptyRow.appendChild(cell);
     body.appendChild(emptyRow);
     return;
@@ -233,7 +262,17 @@ function saveMember() {
 // ---------- WIRING ----------
 
 // Connect the Add button, modal buttons and form submit. Called once on load.
+// Non-admins (trainer) get a read-only page: we REMOVE the add button and
+// the Actions column header so nothing manageable is left on the page.
 function initMemberPage() {
+  if (!canManageMembers()) {
+    var addBtn = document.getElementById("addMemberBtn");
+    if (addBtn) addBtn.remove();
+    var actionsHead = document.getElementById("membersActionsHead");
+    if (actionsHead) actionsHead.remove();
+    return; // nothing to wire for read-only users
+  }
+
   document.getElementById("addMemberBtn").addEventListener("click", openMemberModal);
   document.getElementById("memberModalClose").addEventListener("click", closeMemberModal);
   document.getElementById("memberCancel").addEventListener("click", closeMemberModal);

@@ -33,6 +33,28 @@ function formatDate(isoDate) {
   return parseInt(parts[2], 10) + " " + months[parseInt(parts[1], 10) - 1] + " " + parts[0];
 }
 
+// Fill a container with a centered empty-state: a title, a message, and an
+// optional call-to-action button (ctaLabel is only passed for admins).
+function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
+  container.innerHTML = "";
+  var t = document.createElement("div");
+  t.className = "empty-title";
+  t.textContent = title;
+  container.appendChild(t);
+
+  var m = document.createElement("div");
+  m.textContent = message;
+  container.appendChild(m);
+
+  if (ctaLabel) {
+    var btn = document.createElement("button");
+    btn.className = "btn btn-primary";
+    btn.textContent = ctaLabel;
+    btn.addEventListener("click", ctaHandler);
+    container.appendChild(btn);
+  }
+}
+
 // ---------- TRAINER DROPDOWN ----------
 
 // Fill the trainer <select> with one <option> per saved trainer.
@@ -81,11 +103,15 @@ function renderSchedules() {
   body.innerHTML = ""; // clear before redrawing
 
   if (schedules.length === 0) {
+    var table = body.closest("table");
+    var colCount = table.querySelectorAll("thead th").length;
     var emptyRow = document.createElement("tr");
     var cell = document.createElement("td");
-    cell.colSpan = 6;
+    cell.colSpan = colCount;
     cell.className = "empty-state";
-    cell.textContent = "No classes scheduled yet. Create your first class.";
+    renderEmptyState(cell, "No classes scheduled",
+      canManageSchedules() ? "Create your first class to fill the timetable." : "There are no classes to show.",
+      canManageSchedules() ? "Create class" : null, openClassModal);
     emptyRow.appendChild(cell);
     body.appendChild(emptyRow);
     return;
@@ -187,7 +213,14 @@ function saveClass() {
 // ---------- WIRING ----------
 
 // Connect the Create button, modal buttons and form submit. Called once on load.
+// Non-admins (trainer, member) get a view-only timetable: remove the button.
 function initSchedulePage() {
+  if (!canManageSchedules()) {
+    var addBtn = document.getElementById("addClassBtn");
+    if (addBtn) addBtn.remove();
+    return; // nothing to wire for read-only users
+  }
+
   document.getElementById("addClassBtn").addEventListener("click", openClassModal);
   document.getElementById("classModalClose").addEventListener("click", closeClassModal);
   document.getElementById("classCancel").addEventListener("click", closeClassModal);

@@ -53,7 +53,49 @@ The session role is saved so future sprints can add role-based restrictions.
 
 ---
 
-## 3. How localStorage CRUD works (IAP-38, 39, 40, 43)
+## 3. Role-based access control
+
+Each of the three personas sees a different app. This is driven by **one
+central permissions map** in `js/auth.js` — pages never hard-code roles, they
+ask helper functions ("one permissions map, helpers read it, pages ask the
+helpers").
+
+### Permission matrix
+
+| Capability                | Admin | Trainer | Member |
+|---------------------------|:-----:|:-------:|:------:|
+| Sidebar: Dashboard        |  ✅   |   ✅    |  ✅    |
+| Sidebar: Members          |  ✅   |   ✅    |  ❌ (hidden) |
+| Sidebar: Trainers         |  ✅   |   ✅    |  ❌ (hidden) |
+| Sidebar: Schedules        |  ✅   |   ✅    |  ✅    |
+| Add / Edit members        |  ✅   |   ❌    |  ❌    |
+| Add trainers              |  ✅   |   ❌    |  ❌    |
+| Create class schedules    |  ✅   |   ❌    |  ❌    |
+| Dashboard view            | stats | stats   | simple welcome panel |
+| Role badge                | Administrator (blue) | Trainer (silver) | Member (purple) |
+
+Trainers can **view** every list but get no Add/Edit buttons. Members only see
+Dashboard + Schedules.
+
+### How it is enforced
+
+- `PERMISSIONS` (in `auth.js`) maps each role to: the nav keys it can see, and
+  the `manageMembers` / `manageTrainers` / `manageSchedules` flags.
+- Helper functions read that map: `canManageMembers()`, `canManageTrainers()`,
+  `canManageSchedules()`, `getVisibleNavLinks(role)`, `getRoleLabel(role)`,
+  `getRoleBadgeClass(role)`.
+- **Sidebar** is rendered dynamically by `mountSidebar(activeKey)` from
+  `getVisibleNavLinks()`, so restricted links are **never rendered**.
+- **Buttons** are gated by *not rendering*: each page's `init…Page()` checks the
+  helper and, for non-admins, calls `.remove()` on the Add button (and the
+  members Actions column header). The Edit buttons are only created when
+  `canManageMembers()` is true. Nothing restricted is left on the page.
+- **Hard URL guard:** every protected page calls `requirePageAccess(pageKey)`
+  in the `<head>`. If the role's nav does not include that page (e.g. a member
+  typing `members.html`), it sets a flag and `replace()`s to `dashboard.html`,
+  which then shows a brief "You don't have access" toast.
+
+## 4. How localStorage CRUD works (IAP-38, 39, 40, 43)
 
 `localStorage` is browser storage that survives page refresh. We keep three
 lists, each under its own key, as JSON text:
@@ -93,7 +135,7 @@ matches the current trainer list.
 
 ---
 
-## 4. How the route guard works (IAP-37)
+## 5. How the route guard works (IAP-37)
 
 We must stop people from opening a protected page after logging out (including
 with the browser Back button).
@@ -102,38 +144,43 @@ with the browser Back button).
   `requireAuth()` **before the page body renders**.
 - `requireAuth()` calls `getSession()`. If there is no session, it runs
   `window.location.replace("index.html")` — sending the user to the login page.
-- **Logout**: the Logout button (wired by `mountSidebarUser()`) calls
-  `logout()`, which runs `clearSession()` (removes `shame_session`) and
-  redirects to `index.html`.
+- **Logout**: the Logout button (wired by `mountSidebar()`) calls `logout()`,
+  which runs `clearSession()` (removes `shame_session`), clears the splash flag,
+  and redirects to `index.html`.
 - Because we use `location.replace`, the protected page is not kept in history,
   so pressing Back also hits a page whose `requireAuth()` finds no session and
   bounces back to login.
+- A second guard, `requirePageAccess(pageKey)`, runs right after `requireAuth()`
+  and enforces the role rules from section 3 (e.g. members cannot open
+  `members.html` — they are bounced to the dashboard).
 
 ---
 
-## 5. The splash intro (visual)
+## 6. The splash intro (visual)
 
-On `index.html`, a full-screen overlay shows the logo scaling in and a
-letter-spaced tagline, for about 2.5 seconds, then fades out to reveal the login
-card. The animations are **pure CSS**; a tiny JavaScript `setTimeout` triggers
-the fade-out, and clicking the overlay skips it. We store a flag in
-`sessionStorage` (`shame_splash_played`) so the splash plays **once per browser
-session**, not every time you return to the login page.
+On `index.html`, a full-screen overlay shows the **large** logo scaling in (with
+a soft blue/purple glow behind it) and a letter-spaced tagline, for about 2.5
+seconds, then fades out to reveal the login card. The animations are **pure
+CSS**; a tiny JavaScript `setTimeout` triggers the fade-out, and clicking the
+overlay skips it. We store a flag in `sessionStorage` (`shame_splash_played`) so
+the splash plays **once per browser session** — except that **logging out clears
+that flag**, so after logout you get the full splash again. A plain route-guard
+bounce to login does *not* clear the flag, so it won't replay then.
 
 ---
 
-## 6. What each file does (quick table)
+## 7. What each file does (quick table)
 
 | File              | Responsibility                                                        |
 |-------------------|-----------------------------------------------------------------------|
 | `index.html`      | Splash intro + login form + login validation/auth logic               |
-| `dashboard.html`  | Sidebar layout + welcome + quick stats counted from localStorage      |
+| `dashboard.html`  | Role-aware welcome: staff get animated stat cards, members get a panel |
 | `members.html`    | Members table + add/edit modal markup                                 |
 | `trainers.html`   | Trainers card grid + add modal markup                                 |
 | `schedules.html`  | Schedules table + create-class modal markup                           |
 | `css/style.css`   | Theme variables, layout, components, all animations, reduced-motion   |
 | `js/data.js`      | Seed data + `get…`/`save…` localStorage helpers + `generateId()`      |
-| `js/auth.js`      | `USERS`, `findUser`, session helpers, `requireAuth`, `logout`         |
+| `js/auth.js`      | `USERS`, `PERMISSIONS` map, session, guards, role helpers, sidebar    |
 | `js/toast.js`     | `showToast(message, type)` reused by every page                       |
 | `js/members.js`   | Render table, validate, add + edit member                             |
 | `js/trainers.js`  | Render cards, validate, add trainer                                   |
@@ -141,7 +188,7 @@ session**, not every time you return to the login page.
 
 ---
 
-## 7. Things to know for the professor's questions
+## 8. Things to know for the professor's questions
 
 - **Why no framework?** The brief requires pure HTML/CSS/vanilla JS so every
   page opens directly from the file system with no build step.
@@ -152,8 +199,12 @@ session**, not every time you return to the login page.
   origin). Clearing browser data resets it; the seed data then comes back.
 - **Why `textContent` instead of `innerHTML` when drawing rows?** It puts user
   input in as plain text, so typed characters can't be treated as HTML.
-- **Repeated form helpers** (`showFieldError`, `clearFieldError`) appear in each
-  page's JS on purpose, so each page file is self-contained and identical to
-  read — understand one, understand all.
+- **Repeated form helpers** (`showFieldError`, `clearFieldError`,
+  `renderEmptyState`) appear in each page's JS on purpose, so each page file is
+  self-contained and identical to read — understand one, understand all.
+- **Why remove buttons instead of `display:none`?** A hidden-but-present button
+  still exists in the DOM and could be clicked via dev tools. We *don't render*
+  restricted controls (sidebar links are built per role; Add buttons are
+  `.remove()`d for non-admins), so there is nothing to click.
 - **Reset the demo:** open DevTools → Application → Local Storage → delete the
   `shame_*` keys (or run `localStorage.clear()`), then refresh.

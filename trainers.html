@@ -10,9 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 
-  <!-- ROUTE GUARD: runs before the page renders. -->
+  <!-- GUARDS: need a session, and the role must be allowed to see Trainers. -->
   <script src="js/auth.js"></script>
-  <script>requireAuth();</script>
+  <script>requireAuth(); requirePageAccess("trainers");</script>
 </head>
 <body>
   <div class="app">
@@ -21,15 +21,10 @@
         <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
         <span class="wordmark">S.H.A.M.E</span>
       </div>
-      <nav class="nav">
-        <a class="nav-link" href="dashboard.html">Dashboard</a>
-        <a class="nav-link" href="members.html">Members</a>
-        <a class="nav-link active" href="trainers.html">Trainers</a>
-        <a class="nav-link" href="schedules.html">Schedules</a>
-      </nav>
+      <nav class="nav" id="nav"></nav>
       <div class="sidebar-user">
         <div class="user-name" id="sidebarUserName">—</div>
-        <div class="user-role" id="sidebarUserRole">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
         <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
       </div>
     </aside>
@@ -108,9 +103,9 @@
   <script src="js/toast.js"></script>
   <script src="js/trainers.js"></script>
   <script>
-    mountSidebarUser();
-    renderTrainers();   // draw the cards on load
-    initTrainerPage();  // wire the Add button, modal and form
+    mountSidebar("trainers"); // sidebar adapts to the role
+    initTrainerPage();        // wire (admin) or strip (read-only) management UI
+    renderTrainers();         // draw the cards on load
   </script>
 </body>
 </html>
