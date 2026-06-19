@@ -1,5 +1,6 @@
 /* ============================================================
    S.H.A.M.E GYM — shared stylesheet
+   Base design system. Premium UI layer: css/premium.css
    One file shared by every page. Organised top-to-bottom as:
    1) Theme variables  2) Base/reset  3) Layout (sidebar + main)
    4) Components (buttons, forms, cards, tables, badges, modal)

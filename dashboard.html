@@ -9,12 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
 
   <!-- GUARDS: must have a session; dashboard is allowed for every role. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("dashboard");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
 
     <!-- SHARED SIDEBAR. Nav links are rendered by mountSidebar() based on role. -->
@@ -69,15 +71,15 @@
           </div>
         </div>
 
-        <section class="card">
-          <h2 style="font-size:24px;margin-bottom:8px;">Quick links</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Jump straight to your areas.</p>
+        <section class="card premium-panel">
+          <h2 class="section-heading">Quick links</h2>
+          <p class="subtitle section-lead">Jump straight to your areas.</p>
           <div id="quickLinks" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
         </section>
 
-        <section class="card" id="adminMeetingsSection" style="display:none; margin-top:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Upcoming staff meetings</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Internal coordination for the coaching team.</p>
+        <section class="card premium-panel" id="adminMeetingsSection" style="display:none;">
+          <h2 class="section-heading">Upcoming staff meetings</h2>
+          <p class="subtitle section-lead">Internal coordination for the coaching team.</p>
           <div id="adminMeetingsList"></div>
           <a class="btn btn-ghost" href="meetings.html" style="margin-top:12px;">Manage all meetings</a>
         </section>
@@ -85,9 +87,10 @@
 
       <!-- MEMBER VIEW: simpler welcome panel pointing to the timetable. -->
       <div id="memberView" style="display:none;">
-        <section class="card" style="margin-bottom:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Your membership</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Your account and membership details.</p>
+        <div class="dashboard-stack">
+        <section class="card premium-panel">
+          <h2 class="section-heading">Your membership</h2>
+          <p class="subtitle section-lead">Your account and membership details.</p>
           <div id="membershipBadges" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
             <span class="badge badge-silver">Loading…</span>
           </div>
@@ -96,9 +99,9 @@
           </div>
         </section>
 
-        <section class="card" style="margin-bottom:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Upcoming classes</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Classes you are enrolled in.</p>
+        <section class="card premium-panel">
+          <h2 class="section-heading">Upcoming classes</h2>
+          <p class="subtitle section-lead">Classes you are enrolled in.</p>
           <div id="enrolledClassesList"></div>
           <div class="card-actions">
             <a class="btn btn-primary" href="schedules.html">Browse class schedule</a>
@@ -107,14 +110,15 @@
 
         <!-- MY WORKOUT PROGRAM. Filled by renderWorkoutProgram() from workouts.js:
              the active plan with daily exercises, or a "no active plan" state. -->
-        <section class="card">
-          <h2 style="font-size:24px;margin-bottom:8px;">My Workout Program</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Follow your trainer's plan during your gym session.</p>
+        <section class="card premium-panel">
+          <h2 class="section-heading">My Workout Program</h2>
+          <p class="subtitle section-lead">Follow your trainer's plan during your gym session.</p>
           <div id="workoutContent"></div>
           <div class="card-actions wk-dashboard-footer">
             <a class="btn btn-ghost" href="workouts.html">Open full workout page</a>
           </div>
         </section>
+        </div>
       </div>
     </main>
   </div>
@@ -235,5 +239,6 @@
       }
     }
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>

@@ -9,12 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
 
   <!-- GUARDS: need a session, and the role must be allowed to see Members. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("members");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -127,5 +129,6 @@
     initMemberPage();        // wire (admin) or strip (read-only) management UI
     renderMembers();         // draw the table on load
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>
