@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Staff Meetings</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("meetings");</script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Staff Meetings</h1>
+          <p class="subtitle">Schedule and coordinate internal gym operations.</p>
+        </div>
+        <button class="btn btn-primary" id="addMeetingBtn">+ Schedule meeting</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Location</th>
+              <th>Attendees</th>
+              <th id="meetingsActionsHead">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="meetingsBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="meetingModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="meetingModalTitle">
+      <div class="modal-head">
+        <h2 id="meetingModalTitle">Schedule meeting</h2>
+        <button class="modal-close" id="meetingModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="meetingForm" novalidate>
+        <div class="field">
+          <label for="mtTitle">Title</label>
+          <input type="text" id="mtTitle" placeholder="e.g. Weekly Staff Sync" />
+          <span class="field-error" id="mtTitleError"></span>
+        </div>
+        <div class="field">
+          <label for="mtDate">Date</label>
+          <input type="date" id="mtDate" />
+          <span class="field-error" id="mtDateError"></span>
+        </div>
+        <div class="field">
+          <label for="mtTime">Time</label>
+          <input type="time" id="mtTime" />
+          <span class="field-error" id="mtTimeError"></span>
+        </div>
+        <div class="field">
+          <label for="mtLocation">Location</label>
+          <input type="text" id="mtLocation" placeholder="e.g. Main office" />
+          <span class="field-error" id="mtLocationError"></span>
+        </div>
+        <div class="field">
+          <label for="mtNotes">Notes</label>
+          <textarea id="mtNotes" rows="3" placeholder="Agenda or talking points…"></textarea>
+        </div>
+        <div class="field">
+          <label>Attendees</label>
+          <div id="mtAttendees" class="checkbox-list"></div>
+          <span class="field-error" id="mtAttendeesError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="meetingCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save meeting</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/meetings.js"></script>
+  <script>
+    mountSidebar("meetings");
+    initMeetingPage();
+    renderMeetings();
+  </script>
+</body>
+</html>

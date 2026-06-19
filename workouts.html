@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Workouts</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/workouts.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("workouts");</script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1 id="workoutPageTitle">Workouts</h1>
+          <p class="subtitle" id="workoutPageSubtitle">Follow your trainer's plan during your gym session.</p>
+        </div>
+        <button class="btn btn-primary" id="addPlanBtn" style="display:none;">+ Create plan</button>
+      </div>
+
+      <!-- Member view: assigned plan + progress tracking -->
+      <div id="memberWorkoutView">
+        <div id="workoutContent"></div>
+      </div>
+
+      <!-- Trainer / admin view: manage member workout plans -->
+      <div id="trainerWorkoutView" style="display:none;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Plan</th>
+                <th>Trainer</th>
+                <th>Days</th>
+                <th id="plansActionsHead">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="plansBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CREATE / EDIT WORKOUT PLAN MODAL -->
+  <div class="modal-backdrop" id="planModal">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="planModalTitle">
+      <div class="modal-head">
+        <h2 id="planModalTitle">Create workout plan</h2>
+        <button class="modal-close" id="planModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="planForm" novalidate>
+        <div class="field">
+          <label for="pMember">Member</label>
+          <select id="pMember">
+            <option value="">Select a member…</option>
+          </select>
+          <span class="field-error" id="pMemberError"></span>
+        </div>
+        <div class="field">
+          <label for="pName">Plan name</label>
+          <input type="text" id="pName" placeholder="e.g. 12-Week Strength Builder" />
+          <span class="field-error" id="pNameError"></span>
+        </div>
+        <div class="field">
+          <label for="pNotes">Trainer notes</label>
+          <textarea id="pNotes" rows="3" placeholder="Form cues, rest times, weekly focus…"></textarea>
+        </div>
+
+        <div class="wk-form-section">
+          <div class="wk-form-section-head">
+            <h3>Workout days</h3>
+            <button type="button" class="btn btn-ghost btn-sm" id="addDayBtn">+ Add day</button>
+          </div>
+          <div id="pDaysContainer"></div>
+          <span class="field-error" id="pDaysError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="planCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save plan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/workouts.js"></script>
+  <script>
+    mountSidebar("workouts");
+    initWorkoutPage();
+  </script>
+</body>
+</html>

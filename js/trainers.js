@@ -122,8 +122,11 @@ function renderTrainers() {
     return;
   }
 
-  trainers.forEach(function (trainer) {
-    grid.appendChild(renderTrainerCard(trainer));
+  trainers.forEach(function (trainer, index) {
+    var card = renderTrainerCard(trainer);
+    card.classList.add("card-enter");
+    card.style.animationDelay = (index * 0.06) + "s";
+    grid.appendChild(card);
   });
 }
 
@@ -132,6 +135,8 @@ function renderTrainers() {
 // Open the modal ready to add a trainer.
 function openTrainerModal() {
   document.getElementById("trainerForm").reset();
+  document.getElementById("tPhoneCountry").value = "US";
+  initPhoneField("tPhoneCountry", "tPhone", "tPhoneHint");
   clearAllTrainerErrors();
   document.getElementById("trainerModal").classList.add("open");
 }
@@ -174,8 +179,9 @@ function validateTrainerForm() {
     showFieldError(email, document.getElementById("tEmailError"), "Enter a valid email address.");
     ok = false;
   }
-  if (phone.value.trim() === "") {
-    showFieldError(phone, document.getElementById("tPhoneError"), "Phone number is required.");
+  var phoneCheck = validatePhoneField("tPhoneCountry", "tPhone", document.getElementById("tPhoneError"));
+  if (!phoneCheck.ok) {
+    showFieldError(phone, document.getElementById("tPhoneError"), phoneCheck.message);
     ok = false;
   }
   if (spec.value === "") {
@@ -193,20 +199,23 @@ function validateTrainerForm() {
 function saveTrainer() {
   if (!validateTrainerForm()) return;
 
-  var trainers = getTrainers();
-  trainers.push({
+  var trainerData = {
     id: generateId(),
     name: document.getElementById("tName").value.trim(),
     email: document.getElementById("tEmail").value.trim(),
-    phone: document.getElementById("tPhone").value.trim(),
+    phone: getPhoneFormValue("tPhoneCountry", "tPhone"),
     specialization: document.getElementById("tSpec").value,
     availability: document.getElementById("tAvail").value
-  });
+  };
+
+  var trainers = getTrainers();
+  trainers.push(trainerData);
   saveTrainers(trainers);
+  createPendingUser(trainerData.email, trainerData.name, "trainer", trainerData.id);
 
   closeTrainerModal();
   renderTrainers();
-  showToast("Trainer added successfully", "success");
+  showToast("Trainer added. They can activate their account from the login page.", "success");
 }
 
 // ---------- WIRING ----------
@@ -223,6 +232,7 @@ function initTrainerPage() {
   document.getElementById("addTrainerBtn").addEventListener("click", openTrainerModal);
   document.getElementById("trainerModalClose").addEventListener("click", closeTrainerModal);
   document.getElementById("trainerCancel").addEventListener("click", closeTrainerModal);
+  initPhoneField("tPhoneCountry", "tPhone", "tPhoneHint");
 
   document.getElementById("trainerForm").addEventListener("submit", function (event) {
     event.preventDefault();

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/workouts.css" />
 
   <!-- GUARDS: must have a session; dashboard is allowed for every role. -->
   <script src="js/auth.js"></script>
@@ -74,30 +75,57 @@
           <p class="subtitle" style="margin-bottom:16px;">Jump straight to your areas.</p>
           <div id="quickLinks" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
         </section>
+
+        <section class="card" id="adminMeetingsSection" style="display:none; margin-top:24px;">
+          <h2 style="font-size:24px;margin-bottom:8px;">Upcoming staff meetings</h2>
+          <p class="subtitle" style="margin-bottom:16px;">Internal coordination for the coaching team.</p>
+          <div id="adminMeetingsList"></div>
+          <a class="btn btn-ghost" href="meetings.html" style="margin-top:12px;">Manage all meetings</a>
+        </section>
       </div>
 
       <!-- MEMBER VIEW: simpler welcome panel pointing to the timetable. -->
       <div id="memberView" style="display:none;">
         <section class="card" style="margin-bottom:24px;">
           <h2 style="font-size:24px;margin-bottom:8px;">Your membership</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Membership details (demo placeholder).</p>
-          <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <span class="badge badge-purple">Premium plan</span>
-            <span class="badge badge-silver">Status: Active</span>
+          <p class="subtitle" style="margin-bottom:16px;">Your account and membership details.</p>
+          <div id="membershipBadges" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+            <span class="badge badge-silver">Loading…</span>
+          </div>
+          <div class="card-actions">
+            <a class="btn btn-ghost" href="profile.html">Edit profile</a>
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" style="margin-bottom:24px;">
           <h2 style="font-size:24px;margin-bottom:8px;">Upcoming classes</h2>
-          <p class="subtitle" style="margin-bottom:16px;">See session times and plan your week.</p>
-          <a class="btn btn-primary" href="schedules.html">View class schedule</a>
+          <p class="subtitle" style="margin-bottom:16px;">Classes you are enrolled in.</p>
+          <div id="enrolledClassesList"></div>
+          <div class="card-actions">
+            <a class="btn btn-primary" href="schedules.html">Browse class schedule</a>
+          </div>
+        </section>
+
+        <!-- MY WORKOUT PROGRAM. Filled by renderWorkoutProgram() from workouts.js:
+             the active plan with daily exercises, or a "no active plan" state. -->
+        <section class="card">
+          <h2 style="font-size:24px;margin-bottom:8px;">My Workout Program</h2>
+          <p class="subtitle" style="margin-bottom:16px;">Follow your trainer's plan during your gym session.</p>
+          <div id="workoutContent"></div>
+          <div class="card-actions wk-dashboard-footer">
+            <a class="btn btn-ghost" href="workouts.html">Open full workout page</a>
+          </div>
         </section>
       </div>
     </main>
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/enrollments.js"></script>
   <script src="js/toast.js"></script>
+  <script src="js/workouts.js"></script>
+  <script src="js/meetings.js"></script>
+  <script src="js/schedules.js"></script>
   <script>
     var session = getSession();
 
@@ -138,15 +166,45 @@
     // admin and trainer get the live stat cards.
     if (session.role === "member") {
       document.getElementById("memberView").style.display = "block";
+
+      var user = findUserByEmail(session.email);
+      var member = findMemberForUser(user || session);
+      var badgeWrap = document.getElementById("membershipBadges");
+      badgeWrap.innerHTML = "";
+
+      if (member) {
+        var typeBadge = document.createElement("span");
+        var typeClass = member.type === "VIP" ? "badge-purple" : (member.type === "Premium" ? "badge-blue" : "badge-silver");
+        typeBadge.className = "badge " + typeClass;
+        typeBadge.textContent = member.type + " plan";
+        badgeWrap.appendChild(typeBadge);
+      } else {
+        var unknownBadge = document.createElement("span");
+        unknownBadge.className = "badge badge-silver";
+        unknownBadge.textContent = "Member account";
+        badgeWrap.appendChild(unknownBadge);
+      }
+
+      var statusBadge = document.createElement("span");
+      var accountStatus = getAccountStatus(session.email);
+      if (accountStatus === "active") {
+        statusBadge.className = "badge badge-green";
+        statusBadge.textContent = "Status: Active";
+      } else {
+        statusBadge.className = "badge badge-amber";
+        statusBadge.textContent = "Status: Pending";
+      }
+      badgeWrap.appendChild(statusBadge);
+
+      renderWorkoutProgram();
+      renderEnrolledClassesList("enrolledClassesList");
     } else {
       document.getElementById("staffView").style.display = "block";
 
-      // Numbers are computed live from localStorage, then counted up.
       countUp(document.getElementById("statMembers"), getMembers().length);
       countUp(document.getElementById("statTrainers"), getTrainers().length);
       countUp(document.getElementById("statClasses"), getSchedules().length);
 
-      // Quick links mirror the role's visible nav (skip dashboard itself).
       var quick = document.getElementById("quickLinks");
       getVisibleNavLinks(session.role).forEach(function (link) {
         if (link.key === "dashboard") return;
@@ -156,6 +214,26 @@
         a.textContent = "Open " + link.label;
         quick.appendChild(a);
       });
+
+      if (session.role === "admin" && typeof getUpcomingMeetings === "function") {
+        var meetingsSection = document.getElementById("adminMeetingsSection");
+        var meetingsList = document.getElementById("adminMeetingsList");
+        var upcoming = getUpcomingMeetings(3);
+        meetingsSection.style.display = "block";
+
+        if (upcoming.length === 0) {
+          meetingsList.innerHTML = '<p class="subtitle">No upcoming staff meetings scheduled.</p>';
+        } else {
+          var ul = document.createElement("ul");
+          ul.className = "simple-list";
+          upcoming.forEach(function (meeting) {
+            var li = document.createElement("li");
+            li.textContent = meeting.title + " — " + meeting.date + " at " + meeting.time + " (" + meeting.location + ")";
+            ul.appendChild(li);
+          });
+          meetingsList.appendChild(ul);
+        }
+      }
     }
   </script>
 </body>

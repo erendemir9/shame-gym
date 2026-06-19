@@ -33,7 +33,7 @@
       <div class="page-header">
         <div>
           <h1>Members</h1>
-          <p class="subtitle">Register and manage gym members.</p>
+          <p class="subtitle" id="membersSubtitle">Register and manage gym members.</p>
         </div>
         <button class="btn btn-primary" id="addMemberBtn">+ Add member</button>
       </div>
@@ -41,13 +41,15 @@
       <!-- The table body is filled by renderMembers() from localStorage. -->
       <div class="table-wrap">
         <table>
-          <thead>
+          <thead id="membersTableHead">
             <tr>
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
               <th>Membership</th>
               <th>Start date</th>
+              <th>Account</th>
+              <th>Assigned trainer</th>
               <th id="membersActionsHead">Actions</th>
             </tr>
           </thead>
@@ -78,7 +80,11 @@
         </div>
         <div class="field">
           <label for="mPhone">Phone number</label>
-          <input type="text" id="mPhone" placeholder="e.g. +1 202 555 0143" />
+          <div class="phone-field">
+            <select id="mPhoneCountry" class="phone-country" aria-label="Country code"></select>
+            <input type="tel" id="mPhone" placeholder="202 555 0143" inputmode="tel" autocomplete="tel-national" />
+          </div>
+          <span class="field-hint" id="mPhoneHint">US: 202 555 0143</span>
           <span class="field-error" id="mPhoneError"></span>
         </div>
         <div class="field">
@@ -96,6 +102,12 @@
           <input type="date" id="mStart" />
           <span class="field-error" id="mStartError"></span>
         </div>
+        <div class="field">
+          <label for="mAssignedTrainer">Assigned trainer</label>
+          <select id="mAssignedTrainer">
+            <option value="">No trainer assigned</option>
+          </select>
+        </div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="memberCancel">Cancel</button>
@@ -106,7 +118,9 @@
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/phone.js"></script>
   <script src="js/toast.js"></script>
+  <script src="js/workouts.js"></script>
   <script src="js/members.js"></script>
   <script>
     mountSidebar("members"); // sidebar adapts to the role

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>S.H.A.M.E Gym — Login</title>
 
-  <!-- Google Fonts: Barlow Condensed (display) + Inter (body). Only allowed external resource. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -14,8 +13,6 @@
 </head>
 <body>
 
-  <!-- SPLASH INTRO: full-screen overlay shown once per browser session.
-       Click anywhere to skip. Animations are pure CSS; JS only times the fade-out. -->
   <div class="splash" id="splash">
     <div class="splash-logo">
       <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
@@ -24,79 +21,173 @@
     <span class="splash-skip">Click anywhere to skip</span>
   </div>
 
-  <!-- LOGIN CARD -->
   <main class="login-wrap">
-    <section class="login-card page-enter">
-      <img class="login-logo" src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
-      <h1>Welcome Back</h1>
-      <p class="login-sub">Members Area</p>
+    <section class="login-card page-enter login-card-glow">
 
-      <!-- Banner shown by JS when credentials are wrong (wired in IAP-25). -->
-      <div class="form-error" id="loginError"></div>
+      <!-- LOGIN VIEW -->
+      <div id="loginView">
+        <img class="login-logo" src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <h1>Welcome Back</h1>
+        <p class="login-sub">Members Area</p>
 
-      <form id="loginForm" novalidate>
-        <div class="field">
-          <label for="email">Email or username</label>
-          <input type="text" id="email" name="email" placeholder="admin@shame.gym" autocomplete="username" />
-          <span class="field-error" id="emailError"></span>
+        <div class="form-error" id="loginError"></div>
+
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <label for="email">Email or username</label>
+            <input type="text" id="email" name="email" placeholder="admin@shame.gym" autocomplete="username" />
+            <span class="field-error" id="emailError"></span>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" />
+            <span class="field-error" id="passwordError"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">
+            <span class="btn-label">Log in</span>
+          </button>
+        </form>
+
+        <div class="login-switch">
+          <span class="login-switch-text">First time here?</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="showActivateBtn">Activate your account</button>
         </div>
 
-        <div class="field">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" />
-          <span class="field-error" id="passwordError"></span>
+        <details class="demo-hint">
+          <summary>Demo credentials</summary>
+          <p class="demo-hint-group"><strong>Admin</strong> — password: <code>admin123</code></p>
+          <ul>
+            <li><code>admin@shame.gym</code></li>
+          </ul>
+          <p class="demo-hint-group"><strong>Trainers</strong> — password: <code>trainer123</code></p>
+          <ul>
+            <li><code>trainer@shame.gym</code></li>
+            <li><code>marcus.hale@shame.gym</code></li>
+            <li><code>nadia.petrova@shame.gym</code></li>
+            <li><code>diego.santos@shame.gym</code></li>
+            <li><code>priya.anand@shame.gym</code></li>
+            <li><code>tyler.brooks@shame.gym</code></li>
+          </ul>
+          <p class="demo-hint-group"><strong>Members</strong> — password: <code>member123</code></p>
+          <ul>
+            <li><code>member@shame.gym</code></li>
+            <li><code>james.carter@email.com</code></li>
+            <li><code>sofia.romano@email.com</code></li>
+            <li><code>liam.novak@email.com</code></li>
+            <li><code>amara.okafor@email.com</code></li>
+            <li><code>daniel.reyes@email.com</code></li>
+            <li><code>elena.fischer@email.com</code></li>
+          </ul>
+        </details>
+      </div>
+
+      <!-- ACTIVATE ACCOUNT VIEW -->
+      <div id="activateView" style="display:none;">
+        <img class="login-logo" src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <h1>Activate Account</h1>
+        <p class="login-sub">Set your password to get started</p>
+
+        <div class="form-error" id="activateError"></div>
+        <div class="form-success" id="activateSuccess"></div>
+
+        <form id="activateForm" novalidate>
+          <div class="field">
+            <label for="activateEmail">Email</label>
+            <input type="text" id="activateEmail" placeholder="your.email@example.com" autocomplete="username" />
+            <span class="field-error" id="activateEmailError"></span>
+          </div>
+
+          <div class="field">
+            <label for="activatePassword">New password</label>
+            <input type="password" id="activatePassword" placeholder="At least 6 characters" autocomplete="new-password" />
+            <div class="password-strength" id="passwordStrength">
+              <div class="password-strength-bar" id="passwordStrengthBar"></div>
+            </div>
+            <span class="field-error" id="activatePasswordError"></span>
+          </div>
+
+          <div class="field">
+            <label for="activateConfirm">Confirm password</label>
+            <input type="password" id="activateConfirm" placeholder="Repeat your password" autocomplete="new-password" />
+            <span class="field-error" id="activateConfirmError"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="activateSubmitBtn">
+            <span class="btn-label">Set password &amp; activate</span>
+          </button>
+        </form>
+
+        <div class="login-switch">
+          <span class="login-switch-text">Already activated?</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="showLoginBtn">Back to log in</button>
         </div>
+      </div>
 
-        <button type="submit" class="btn btn-primary btn-block">Log in</button>
-      </form>
-
-      <!-- Collapsible demo credentials for the university demo. -->
-      <details class="demo-hint">
-        <summary>Demo credentials</summary>
-        <ul>
-          <li><code>admin@shame.gym</code> / <code>admin123</code></li>
-          <li><code>trainer@shame.gym</code> / <code>trainer123</code></li>
-          <li><code>member@shame.gym</code> / <code>member123</code></li>
-        </ul>
-      </details>
     </section>
   </main>
 
   <script src="js/auth.js"></script>
 
-  <!-- LOGIN LOGIC: validate the two fields, then check credentials. -->
   <script>
     (function () {
-      // If already logged in, skip the login page and go to the dashboard.
       if (getSession()) {
         window.location.replace("dashboard.html");
         return;
       }
 
-      var form = document.getElementById("loginForm");
+      var loginView = document.getElementById("loginView");
+      var activateView = document.getElementById("activateView");
+      var loginForm = document.getElementById("loginForm");
+      var activateForm = document.getElementById("activateForm");
       var emailInput = document.getElementById("email");
       var passwordInput = document.getElementById("password");
-      var formError = document.getElementById("loginError");
+      var loginError = document.getElementById("loginError");
+      var activateError = document.getElementById("activateError");
+      var activateSuccess = document.getElementById("activateSuccess");
 
-      // Show a red message under one field + shake it.
       function setFieldError(input, errorEl, message) {
         errorEl.textContent = message;
         errorEl.classList.add("show");
         input.classList.add("invalid");
-        // Restart the shake animation each time it is triggered.
         input.classList.remove("shake");
-        void input.offsetWidth; // reflow so the animation replays
+        void input.offsetWidth;
         input.classList.add("shake");
       }
 
-      // Clear the error state for one field.
       function clearFieldError(input, errorEl) {
         errorEl.textContent = "";
         errorEl.classList.remove("show");
         input.classList.remove("invalid");
       }
 
-      // Validate that both fields are filled. Returns true if the form is OK.
+      function switchView(showActivate) {
+        if (showActivate) {
+          loginView.style.display = "none";
+          activateView.style.display = "block";
+          activateView.classList.remove("view-switch");
+          void activateView.offsetWidth;
+          activateView.classList.add("view-switch");
+          if (emailInput.value.trim()) {
+            document.getElementById("activateEmail").value = emailInput.value.trim();
+          }
+        } else {
+          activateView.style.display = "none";
+          loginView.style.display = "block";
+          loginView.classList.remove("view-switch");
+          void loginView.offsetWidth;
+          loginView.classList.add("view-switch");
+        }
+      }
+
+      document.getElementById("showActivateBtn").addEventListener("click", function () {
+        switchView(true);
+      });
+      document.getElementById("showLoginBtn").addEventListener("click", function () {
+        switchView(false);
+      });
+
       function validateLoginForm() {
         var ok = true;
         clearFieldError(emailInput, document.getElementById("emailError"));
@@ -113,54 +204,184 @@
         return ok;
       }
 
-      // Handle the submit: validate, check credentials, then save + redirect.
-      form.addEventListener("submit", function (event) {
-        event.preventDefault();          // stop the browser's default submit
-        formError.classList.remove("show");
+      function setButtonLoading(btn, loading) {
+        if (loading) {
+          btn.classList.add("btn-loading");
+          btn.disabled = true;
+        } else {
+          btn.classList.remove("btn-loading");
+          btn.disabled = false;
+        }
+      }
 
-        if (!validateLoginForm()) return; // empty fields: stop here
+      loginForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        loginError.classList.remove("show");
+        if (!validateLoginForm()) return;
 
-        var user = findUser(emailInput.value.trim(), passwordInput.value);
-        if (!user) {
-          // Wrong email or password: show the banner.
-          formError.textContent = "Invalid email or password. Please try again.";
-          formError.classList.add("show");
+        var email = emailInput.value.trim();
+        var pending = findUserByEmail(email);
+
+        if (pending && pending.needsPasswordSetup) {
+          loginError.textContent = "Your account needs activation. Set your password first.";
+          loginError.classList.add("show");
+          switchView(true);
+          document.getElementById("activateEmail").value = email;
           return;
         }
 
-        // Success: store the session and go to the dashboard.
-        saveSession(user);
-        window.location.replace("dashboard.html");
+        var loginBtn = document.getElementById("loginSubmitBtn");
+        setButtonLoading(loginBtn, true);
+
+        setTimeout(function () {
+          var user = findUser(email, passwordInput.value);
+          if (!user) {
+            loginError.textContent = "Invalid email or password. Please try again.";
+            loginError.classList.add("show");
+            setButtonLoading(loginBtn, false);
+            return;
+          }
+
+          saveSession(user);
+          loginBtn.classList.add("btn-success-flash");
+          setTimeout(function () {
+            window.location.replace("dashboard.html");
+          }, 350);
+        }, 400);
       });
 
-      // Clear a field's error as soon as the user types in it.
       emailInput.addEventListener("input", function () {
         clearFieldError(emailInput, document.getElementById("emailError"));
       });
       passwordInput.addEventListener("input", function () {
         clearFieldError(passwordInput, document.getElementById("passwordError"));
       });
+
+      // ---------- ACTIVATE FORM ----------
+
+      var activateEmail = document.getElementById("activateEmail");
+      var activatePassword = document.getElementById("activatePassword");
+      var activateConfirm = document.getElementById("activateConfirm");
+      var strengthBar = document.getElementById("passwordStrengthBar");
+
+      function updatePasswordStrength(value) {
+        var score = 0;
+        if (value.length >= 6) score++;
+        if (value.length >= 10) score++;
+        if (/[A-Z]/.test(value) && /[0-9]/.test(value)) score++;
+        strengthBar.className = "password-strength-bar";
+        if (score === 0) {
+          strengthBar.style.width = "0%";
+        } else if (score === 1) {
+          strengthBar.classList.add("weak");
+          strengthBar.style.width = "33%";
+        } else if (score === 2) {
+          strengthBar.classList.add("medium");
+          strengthBar.style.width = "66%";
+        } else {
+          strengthBar.classList.add("strong");
+          strengthBar.style.width = "100%";
+        }
+      }
+
+      activatePassword.addEventListener("input", function () {
+        clearFieldError(activatePassword, document.getElementById("activatePasswordError"));
+        updatePasswordStrength(activatePassword.value);
+      });
+
+      activateConfirm.addEventListener("input", function () {
+        clearFieldError(activateConfirm, document.getElementById("activateConfirmError"));
+      });
+      activateEmail.addEventListener("input", function () {
+        clearFieldError(activateEmail, document.getElementById("activateEmailError"));
+      });
+
+      function validateActivateForm() {
+        var ok = true;
+        activateError.classList.remove("show");
+        activateSuccess.classList.remove("show");
+        clearFieldError(activateEmail, document.getElementById("activateEmailError"));
+        clearFieldError(activatePassword, document.getElementById("activatePasswordError"));
+        clearFieldError(activateConfirm, document.getElementById("activateConfirmError"));
+
+        var email = activateEmail.value.trim();
+        if (email === "") {
+          setFieldError(activateEmail, document.getElementById("activateEmailError"), "Email is required.");
+          ok = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setFieldError(activateEmail, document.getElementById("activateEmailError"), "Enter a valid email address.");
+          ok = false;
+        } else if (!findUserByEmail(email)) {
+          setFieldError(activateEmail, document.getElementById("activateEmailError"), "No account found. Contact your administrator.");
+          ok = false;
+        } else if (!isUserPendingActivation(email)) {
+          setFieldError(activateEmail, document.getElementById("activateEmailError"), "This account is already active. Log in instead.");
+          ok = false;
+        }
+
+        var pwd = activatePassword.value;
+        if (pwd.length < 6) {
+          setFieldError(activatePassword, document.getElementById("activatePasswordError"), "Password must be at least 6 characters.");
+          ok = false;
+        }
+        if (activateConfirm.value !== pwd) {
+          setFieldError(activateConfirm, document.getElementById("activateConfirmError"), "Passwords do not match.");
+          ok = false;
+        }
+        return ok;
+      }
+
+      activateForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!validateActivateForm()) return;
+
+        var activateBtn = document.getElementById("activateSubmitBtn");
+        setButtonLoading(activateBtn, true);
+
+        setTimeout(function () {
+          var result = activateUserPassword(activateEmail.value.trim(), activatePassword.value);
+          if (!result.ok) {
+            if (result.reason === "already_active") {
+              activateError.textContent = "This account is already active. Log in instead.";
+            } else {
+              activateError.textContent = "No account found. Contact your administrator.";
+            }
+            activateError.classList.add("show");
+            setButtonLoading(activateBtn, false);
+            return;
+          }
+
+          activateSuccess.textContent = "Account activated! Redirecting to log in…";
+          activateSuccess.classList.add("show");
+          activateBtn.classList.add("btn-success-flash");
+
+          setTimeout(function () {
+            emailInput.value = activateEmail.value.trim();
+            passwordInput.value = "";
+            activateForm.reset();
+            strengthBar.style.width = "0%";
+            strengthBar.className = "password-strength-bar";
+            setButtonLoading(activateBtn, false);
+            switchView(false);
+          }, 1200);
+        }, 500);
+      });
     })();
   </script>
 
-  <!-- Splash timing logic: play once per session, allow skip. -->
   <script>
     (function () {
       var splash = document.getElementById("splash");
 
-      // Hide the splash and remember we played it for this session.
       function dismissSplash() {
         splash.classList.add("hide");
         sessionStorage.setItem("shame_splash_played", "yes");
-        // Remove from the DOM after the fade so it never blocks clicks.
         setTimeout(function () { splash.style.display = "none"; }, 600);
       }
 
-      // If it already played this session, skip straight to the login card.
       if (sessionStorage.getItem("shame_splash_played")) {
         splash.style.display = "none";
       } else {
-        // Auto-dismiss after ~2.5s, or sooner if the user clicks.
         setTimeout(dismissSplash, 2500);
         splash.addEventListener("click", dismissSplash);
       }

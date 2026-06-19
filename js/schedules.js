@@ -5,27 +5,21 @@
    matches the current coaching team.
    ============================================================ */
 
-// ---------- SMALL SHARED FORM HELPERS ----------
-// (Same helpers as the other CRUD pages so every form behaves identically.)
-
-// Show a red message under a field and shake the input once.
 function showFieldError(input, errorEl, message) {
   errorEl.textContent = message;
   errorEl.classList.add("show");
   input.classList.add("invalid");
   input.classList.remove("shake");
-  void input.offsetWidth;      // force reflow so the shake can replay
+  void input.offsetWidth;
   input.classList.add("shake");
 }
 
-// Clear a field's error state.
 function clearFieldError(input, errorEl) {
   errorEl.textContent = "";
   errorEl.classList.remove("show");
   input.classList.remove("invalid", "shake");
 }
 
-// Turn "2026-06-15" into "15 Jun 2026" for nicer display.
 function formatDate(isoDate) {
   if (!isoDate) return "";
   var parts = isoDate.split("-");
@@ -33,8 +27,6 @@ function formatDate(isoDate) {
   return parseInt(parts[2], 10) + " " + months[parseInt(parts[1], 10) - 1] + " " + parts[0];
 }
 
-// Fill a container with a centered empty-state: a title, a message, and an
-// optional call-to-action button (ctaLabel is only passed for admins).
 function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
   container.innerHTML = "";
   var t = document.createElement("div");
@@ -55,52 +47,114 @@ function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
   }
 }
 
-// ---------- TRAINER DROPDOWN ----------
+function isMemberRole() {
+  return getRole() === "member";
+}
 
-// Fill the trainer <select> with one <option> per saved trainer.
-// Called whenever the modal opens so newly added trainers show up.
 function populateTrainerSelect() {
   var select = document.getElementById("cTrainer");
   var trainers = getTrainers();
-
-  // Start fresh with just the placeholder option.
   select.innerHTML = '<option value="">Select a trainer…</option>';
 
   trainers.forEach(function (trainer) {
     var option = document.createElement("option");
-    // We store the trainer's name on the schedule, so use it as the value.
     option.value = trainer.name;
     option.textContent = trainer.name + " (" + trainer.specialization + ")";
     select.appendChild(option);
   });
 }
 
-// ---------- RENDERING ----------
-
-// Build a small <td> with plain text.
 function textCell(text) {
   var td = document.createElement("td");
   td.textContent = text;
   return td;
 }
 
-// Build one table row for a scheduled class.
+function configureScheduleTableHeaders() {
+  var headRow = document.querySelector("#schedulesTableHead tr");
+  if (!headRow) return;
+  headRow.innerHTML = "";
+
+  function addHead(text) {
+    var th = document.createElement("th");
+    th.textContent = text;
+    headRow.appendChild(th);
+  }
+
+  addHead("Class");
+  addHead("Trainer");
+  addHead("Date");
+  addHead("Time");
+  addHead("Duration");
+  addHead("Spots");
+  if (isMemberRole()) addHead("Actions");
+}
+
 function renderScheduleRow(item) {
   var tr = document.createElement("tr");
+  var enrolled = getEnrollmentCount(item.id);
+  var session = getSession();
+
   tr.appendChild(textCell(item.className));
   tr.appendChild(textCell(item.trainerName));
   tr.appendChild(textCell(formatDate(item.date)));
   tr.appendChild(textCell(item.time));
   tr.appendChild(textCell(item.duration + " min"));
-  tr.appendChild(textCell(item.capacity + " spots"));
+  tr.appendChild(textCell(enrolled + " / " + item.capacity));
+
+  if (isMemberRole()) {
+    var actionsTd = document.createElement("td");
+    actionsTd.className = "row-actions";
+
+    if (isEnrolled(item.id, session.email)) {
+      var badge = document.createElement("span");
+      badge.className = "badge badge-green";
+      badge.textContent = "Enrolled";
+      badge.style.marginRight = "8px";
+      actionsTd.appendChild(badge);
+
+      var unenrollBtn = document.createElement("button");
+      unenrollBtn.className = "btn btn-ghost btn-sm";
+      unenrollBtn.textContent = "Unenroll";
+      unenrollBtn.addEventListener("click", function () {
+        unenrollFromClass(item.id, session.email);
+        renderSchedules();
+        showToast("Removed from " + item.className, "info");
+      });
+      actionsTd.appendChild(unenrollBtn);
+    } else if (enrolled >= item.capacity) {
+      var fullBadge = document.createElement("span");
+      fullBadge.className = "badge badge-silver";
+      fullBadge.textContent = "Full";
+      actionsTd.appendChild(fullBadge);
+    } else {
+      var enrollBtn = document.createElement("button");
+      enrollBtn.className = "btn btn-primary btn-sm";
+      enrollBtn.textContent = "Enroll";
+      enrollBtn.addEventListener("click", function () {
+        var result = enrollInClass(item.id, session.email);
+        if (!result.ok) {
+          showToast(result.reason === "full" ? "Class is full" : "Could not enroll", "error");
+          return;
+        }
+        renderSchedules();
+        showToast("Enrolled in " + item.className, "success");
+      });
+      actionsTd.appendChild(enrollBtn);
+    }
+
+    tr.appendChild(actionsTd);
+  }
+
   return tr;
 }
 
-// Read schedules from localStorage and (re)draw the whole table body.
 function renderSchedules() {
+  configureScheduleTableHeaders();
+
   var schedules = getSchedules();
   var body = document.getElementById("schedulesBody");
-  body.innerHTML = ""; // clear before redrawing
+  body.innerHTML = "";
 
   if (schedules.length === 0) {
     var table = body.closest("table");
@@ -117,14 +171,14 @@ function renderSchedules() {
     return;
   }
 
-  schedules.forEach(function (item) {
-    body.appendChild(renderScheduleRow(item));
+  schedules.forEach(function (item, index) {
+    var row = renderScheduleRow(item);
+    row.classList.add("row-enter");
+    row.style.animationDelay = (index * 0.04) + "s";
+    body.appendChild(row);
   });
 }
 
-// ---------- MODAL ----------
-
-// Open the modal ready to create a class (and refresh the trainer list).
 function openClassModal() {
   document.getElementById("classForm").reset();
   clearAllClassErrors();
@@ -132,12 +186,10 @@ function openClassModal() {
   document.getElementById("classModal").classList.add("open");
 }
 
-// Close the modal.
 function closeClassModal() {
   document.getElementById("classModal").classList.remove("open");
 }
 
-// Clear every field error in the class form.
 function clearAllClassErrors() {
   clearFieldError(document.getElementById("cName"), document.getElementById("cNameError"));
   clearFieldError(document.getElementById("cTrainer"), document.getElementById("cTrainerError"));
@@ -147,9 +199,6 @@ function clearAllClassErrors() {
   clearFieldError(document.getElementById("cCapacity"), document.getElementById("cCapacityError"));
 }
 
-// ---------- VALIDATE + SAVE ----------
-
-// Check the form. Returns true when every field is valid.
 function validateClassForm() {
   var ok = true;
   clearAllClassErrors();
@@ -177,7 +226,6 @@ function validateClassForm() {
     showFieldError(time, document.getElementById("cTimeError"), "Time is required.");
     ok = false;
   }
-  // Duration and capacity must be whole numbers greater than zero.
   if (duration.value === "" || Number(duration.value) <= 0) {
     showFieldError(duration, document.getElementById("cDurationError"), "Enter a duration in minutes.");
     ok = false;
@@ -189,7 +237,6 @@ function validateClassForm() {
   return ok;
 }
 
-// Save a new class: validate, push, persist, re-render, toast.
 function saveClass() {
   if (!validateClassForm()) return;
 
@@ -210,15 +257,11 @@ function saveClass() {
   showToast("Class created successfully", "success");
 }
 
-// ---------- WIRING ----------
-
-// Connect the Create button, modal buttons and form submit. Called once on load.
-// Non-admins (trainer, member) get a view-only timetable: remove the button.
 function initSchedulePage() {
   if (!canManageSchedules()) {
     var addBtn = document.getElementById("addClassBtn");
     if (addBtn) addBtn.remove();
-    return; // nothing to wire for read-only users
+    return;
   }
 
   document.getElementById("addClassBtn").addEventListener("click", openClassModal);
@@ -230,8 +273,35 @@ function initSchedulePage() {
     saveClass();
   });
 
-  // Clicking the backdrop closes the modal.
   document.getElementById("classModal").addEventListener("click", function (event) {
     if (event.target === this) closeClassModal();
   });
+}
+
+function renderEnrolledClassesList(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  var session = getSession();
+  var classes = getEnrolledClassesForMember(session.email).sort(function (a, b) {
+    return (a.date + a.time).localeCompare(b.date + b.time);
+  });
+
+  container.innerHTML = "";
+  if (classes.length === 0) {
+    var empty = document.createElement("p");
+    empty.className = "subtitle";
+    empty.textContent = "You are not enrolled in any classes yet.";
+    container.appendChild(empty);
+    return;
+  }
+
+  var list = document.createElement("ul");
+  list.className = "simple-list";
+  classes.forEach(function (item) {
+    var li = document.createElement("li");
+    li.textContent = item.className + " — " + formatDate(item.date) + " at " + item.time + " with " + item.trainerName;
+    list.appendChild(li);
+  });
+  container.appendChild(list);
 }

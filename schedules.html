@@ -41,14 +41,14 @@
       <!-- The table body is filled by renderSchedules() from localStorage. -->
       <div class="table-wrap">
         <table>
-          <thead>
+          <thead id="schedulesTableHead">
             <tr>
               <th>Class</th>
               <th>Trainer</th>
               <th>Date</th>
               <th>Time</th>
               <th>Duration</th>
-              <th>Capacity</th>
+              <th>Spots</th>
             </tr>
           </thead>
           <tbody id="schedulesBody"></tbody>
@@ -109,6 +109,7 @@
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/enrollments.js"></script>
   <script src="js/toast.js"></script>
   <script src="js/schedules.js"></script>
   <script>
