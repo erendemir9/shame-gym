@@ -51,7 +51,40 @@ function isMemberRole() {
   return getRole() === "member";
 }
 
+function isTrainerView() {
+  return getRole() === "trainer";
+}
+
+function canViewScheduleRoster() {
+  return canManageSchedules() || isTrainerView();
+}
+
+function getLoggedInTrainerName() {
+  var session = getSession();
+  if (!session) return "";
+
+  var sessionEmail = session.email ? session.email.trim().toLowerCase() : "";
+  var trainers = getTrainers();
+  for (var i = 0; i < trainers.length; i++) {
+    if (trainers[i].email && trainers[i].email.trim().toLowerCase() === sessionEmail) {
+      return trainers[i].name;
+    }
+  }
+  return session.name || "";
+}
+
+function getSchedulesForView() {
+  var schedules = getSchedules();
+  if (!isTrainerView()) return schedules;
+
+  var trainerName = getLoggedInTrainerName();
+  return schedules.filter(function (item) {
+    return item.trainerName === trainerName;
+  });
+}
+
 var editingClassId = null;
+var activeRosterClass = null;
 
 function populateTrainerSelect() {
   var select = document.getElementById("cTrainer");
@@ -72,6 +105,16 @@ function textCell(text) {
   return td;
 }
 
+function createRosterButton(item) {
+  var rosterBtn = document.createElement("button");
+  rosterBtn.className = "btn btn-ghost btn-sm";
+  rosterBtn.textContent = "Roster";
+  rosterBtn.addEventListener("click", function () {
+    openRosterModal(item);
+  });
+  return rosterBtn;
+}
+
 function configureScheduleTableHeaders() {
   var headRow = document.querySelector("#schedulesTableHead tr");
   if (!headRow) return;
@@ -84,12 +127,12 @@ function configureScheduleTableHeaders() {
   }
 
   addHead("Class");
-  addHead("Trainer");
+  if (!isTrainerView()) addHead("Trainer");
   addHead("Date");
   addHead("Time");
   addHead("Duration");
   addHead("Spots");
-  if (isMemberRole() || canManageSchedules()) addHead("Actions");
+  if (isMemberRole() || canManageSchedules() || isTrainerView()) addHead("Actions");
 }
 
 function renderScheduleRow(item) {
@@ -98,7 +141,7 @@ function renderScheduleRow(item) {
   var session = getSession();
 
   tr.appendChild(textCell(item.className));
-  tr.appendChild(textCell(item.trainerName));
+  if (!isTrainerView()) tr.appendChild(textCell(item.trainerName));
   tr.appendChild(textCell(formatDate(item.date)));
   tr.appendChild(textCell(item.time));
   tr.appendChild(textCell(item.duration + " min"));
@@ -166,7 +209,13 @@ function renderScheduleRow(item) {
 
     adminActionsTd.appendChild(editBtn);
     adminActionsTd.appendChild(deleteBtn);
+    adminActionsTd.appendChild(createRosterButton(item));
     tr.appendChild(adminActionsTd);
+  } else if (isTrainerView()) {
+    var trainerActionsTd = document.createElement("td");
+    trainerActionsTd.className = "row-actions";
+    trainerActionsTd.appendChild(createRosterButton(item));
+    tr.appendChild(trainerActionsTd);
   }
 
   return tr;
@@ -175,7 +224,7 @@ function renderScheduleRow(item) {
 function renderSchedules() {
   configureScheduleTableHeaders();
 
-  var schedules = getSchedules();
+  var schedules = getSchedulesForView();
   var body = document.getElementById("schedulesBody");
   body.innerHTML = "";
 
@@ -186,9 +235,17 @@ function renderSchedules() {
     var cell = document.createElement("td");
     cell.colSpan = colCount;
     cell.className = "empty-state";
-    renderEmptyState(cell, "No classes scheduled",
-      canManageSchedules() ? "Create your first class to fill the timetable." : "There are no classes to show.",
-      canManageSchedules() ? "Create class" : null, openClassModal);
+
+    if (isTrainerView()) {
+      renderEmptyState(cell, "No classes assigned", "You have no classes assigned to you yet.", null, null);
+    } else if (canManageSchedules()) {
+      renderEmptyState(cell, "No classes scheduled",
+        "Create your first class to fill the timetable.",
+        "Create class", openClassModal);
+    } else {
+      renderEmptyState(cell, "No classes scheduled", "There are no classes to show.", null, null);
+    }
+
     emptyRow.appendChild(cell);
     body.appendChild(emptyRow);
     return;
@@ -200,6 +257,76 @@ function renderSchedules() {
     row.style.animationDelay = (index * 0.04) + "s";
     body.appendChild(row);
   });
+}
+
+function openRosterModal(item) {
+  activeRosterClass = item;
+  document.getElementById("rosterModalTitle").textContent = item.className;
+  document.getElementById("rosterModalSubtitle").textContent =
+    formatDate(item.date) + " at " + item.time + " · with " + item.trainerName;
+  renderRosterList();
+  document.getElementById("rosterModal").classList.add("open");
+}
+
+function closeRosterModal() {
+  activeRosterClass = null;
+  document.getElementById("rosterModal").classList.remove("open");
+}
+
+function renderRosterList() {
+  var body = document.getElementById("rosterBody");
+  body.innerHTML = "";
+  if (!activeRosterClass) return;
+
+  var roster = getEnrollmentRoster(activeRosterClass.id);
+  if (roster.length === 0) {
+    var empty = document.createElement("p");
+    empty.className = "subtitle";
+    empty.textContent = "No members enrolled yet.";
+    body.appendChild(empty);
+    return;
+  }
+
+  roster.forEach(function (entry) {
+    var row = document.createElement("div");
+    row.className = "roster-row";
+
+    var info = document.createElement("div");
+    info.className = "roster-entry-info";
+
+    var name = document.createElement("div");
+    name.className = "roster-entry-name";
+    name.textContent = entry.name;
+
+    var email = document.createElement("div");
+    email.className = "roster-entry-email";
+    email.textContent = entry.email;
+
+    info.appendChild(name);
+    info.appendChild(email);
+    row.appendChild(info);
+
+    if (canManageSchedules()) {
+      var removeBtn = document.createElement("button");
+      removeBtn.className = "btn btn-ghost btn-sm";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", function () {
+        removeRosterMember(activeRosterClass, entry.email, entry.name);
+      });
+      row.appendChild(removeBtn);
+    }
+
+    body.appendChild(row);
+  });
+}
+
+function removeRosterMember(classItem, memberEmail, memberName) {
+  if (!confirm("Remove " + memberName + " from " + classItem.className + "?")) return;
+
+  unenrollFromClass(classItem.id, memberEmail);
+  renderRosterList();
+  renderSchedules();
+  showToast("Member removed from class", "info");
 }
 
 function openClassModal() {
@@ -338,24 +465,41 @@ function deleteClass(item) {
 }
 
 function initSchedulePage() {
+  var subtitle = document.getElementById("schedulesSubtitle");
+  if (subtitle) {
+    if (canManageSchedules()) {
+      subtitle.textContent = "Create class sessions and view the timetable.";
+    } else if (isTrainerView()) {
+      subtitle.textContent = "View your class sessions and see who is enrolled.";
+    } else {
+      subtitle.textContent = "Browse the timetable and enroll in classes.";
+    }
+  }
+
   if (!canManageSchedules()) {
     var addBtn = document.getElementById("addClassBtn");
     if (addBtn) addBtn.remove();
-    return;
+  } else {
+    document.getElementById("addClassBtn").addEventListener("click", openClassModal);
+    document.getElementById("classModalClose").addEventListener("click", closeClassModal);
+    document.getElementById("classCancel").addEventListener("click", closeClassModal);
+
+    document.getElementById("classForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveClass();
+    });
+
+    document.getElementById("classModal").addEventListener("click", function (event) {
+      if (event.target === this) closeClassModal();
+    });
   }
 
-  document.getElementById("addClassBtn").addEventListener("click", openClassModal);
-  document.getElementById("classModalClose").addEventListener("click", closeClassModal);
-  document.getElementById("classCancel").addEventListener("click", closeClassModal);
-
-  document.getElementById("classForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    saveClass();
-  });
-
-  document.getElementById("classModal").addEventListener("click", function (event) {
-    if (event.target === this) closeClassModal();
-  });
+  if (canViewScheduleRoster()) {
+    document.getElementById("rosterModalClose").addEventListener("click", closeRosterModal);
+    document.getElementById("rosterModal").addEventListener("click", function (event) {
+      if (event.target === this) closeRosterModal();
+    });
+  }
 }
 
 function renderEnrolledClassesList(containerId) {

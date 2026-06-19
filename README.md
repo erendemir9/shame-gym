@@ -78,7 +78,7 @@ Three similar-sounding areas serve different purposes:
 
 | Feature | Page | Who | What it is | What users do |
 |---------|------|-----|------------|---------------|
-| **Schedules** | `schedules.html` | Everyone (members enroll) | **Group class timetable** — Spinning, Yoga, HIIT, etc. | Admin creates classes. Members **Enroll / Unenroll**. Capacity shown as spots (e.g. `12 / 20`). |
+| **Schedules** | `schedules.html` | Everyone (members enroll) | **Group class timetable** — Spinning, Yoga, HIIT, etc. | Admin creates/edits classes and manages rosters. Trainers see **own classes** + read-only roster. Members **Enroll / Unenroll**. |
 | **Meetings** | `meetings.html` | Admin only | **Internal staff meetings** — ops coordination, not gym classes | Admin schedules meetings with date, location, notes, and staff attendees. |
 | **Workouts** | `workouts.html` | Trainer / Admin + Members | **Personal training program** — exercises per day | Trainer assigns a plan to a member. Member follows it and marks days **complete**. |
 
@@ -164,8 +164,10 @@ Every internal page shares the same shell: **fixed sidebar** (logo, role-based n
 | Members (manage add/edit) | Yes | No | No |
 | Members (view assigned + progress) | All | Assigned only | No |
 | Trainers page | Yes | **No** | No |
-| Schedules (create classes) | Yes | No | No |
-| Schedules (view + enroll) | View | View | Enroll |
+| Schedules (create/edit/delete classes) | Yes | No | No |
+| Schedules (view all / own classes) | All | Own only | All |
+| Schedules (view roster) | Yes + remove spots | Own classes, read-only | No |
+| Schedules (enroll) | — | — | Yes |
 | Workouts (create/edit plans) | Yes | Yes | No |
 | Workouts (follow own plan) | — | — | Yes |
 | Staff meetings | Yes | No | No |
@@ -220,8 +222,9 @@ Member login accounts link to member rows via **`linkedId`** (e.g. `m1`) or matc
 
 ### Schedules (`schedules.html`)
 
-- **Admin:** Create class modal (trainer picked from stored trainers).
-- **Member:** Enroll / Unenroll with capacity checks; “Full” when no spots left.
+- **Admin:** Full timetable, create/edit/delete classes, **Roster** modal to see enrolled members and remove spots.
+- **Trainer:** Only classes where `trainerName` matches their profile; **Roster** button shows enrolled members (read-only).
+- **Member:** All classes visible; Enroll / Unenroll with capacity checks; “Full” when no spots left.
 
 ### Workouts (`workouts.html`)
 

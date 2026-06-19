@@ -76,3 +76,30 @@ function removeEnrollmentsForClass(classId) {
   var list = getEnrollments().filter(function (e) { return e.classId !== classId; });
   saveEnrollments(list);
 }
+
+function getMemberLabelForEmail(email) {
+  var target = normalizeEnrollmentEmail(email);
+  var members = getMembers();
+  for (var i = 0; i < members.length; i++) {
+    if (normalizeEnrollmentEmail(members[i].email) === target) {
+      return members[i].name;
+    }
+  }
+  if (typeof findUserByEmail === "function") {
+    var user = findUserByEmail(email);
+    if (user && user.name) return user.name;
+  }
+  return email;
+}
+
+function getEnrollmentRoster(classId) {
+  return getEnrollmentsForClass(classId).map(function (entry) {
+    return {
+      email: entry.memberEmail,
+      name: getMemberLabelForEmail(entry.memberEmail),
+      enrolledAt: entry.enrolledAt
+    };
+  }).sort(function (a, b) {
+    return a.name.localeCompare(b.name);
+  });
+}

@@ -33,7 +33,7 @@
       <div class="page-header">
         <div>
           <h1>Schedules</h1>
-          <p class="subtitle">Create class sessions and view the timetable.</p>
+          <p class="subtitle" id="schedulesSubtitle">Create class sessions and view the timetable.</p>
         </div>
         <button class="btn btn-primary" id="addClassBtn">+ Create class</button>
       </div>
@@ -105,6 +105,20 @@
           <button type="submit" class="btn btn-primary">Save class</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- CLASS ROSTER MODAL (admin + trainer). -->
+  <div class="modal-backdrop" id="rosterModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rosterModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="rosterModalTitle">Class roster</h2>
+          <p class="subtitle" id="rosterModalSubtitle" style="margin-top:4px;"></p>
+        </div>
+        <button class="modal-close" id="rosterModalClose" aria-label="Close">&times;</button>
+      </div>
+      <div id="rosterBody"></div>
     </div>
   </div>
 

@@ -970,6 +970,20 @@ tbody tr:hover { background-color: var(--bg-hover); } /* row hover */
 }
 .simple-list li:last-child { border-bottom: none; }
 
+.roster-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.roster-row:last-child { border-bottom: none; }
+.roster-entry-name { font-weight: 600; color: var(--white); }
+.roster-entry-email { font-size: 13px; color: var(--silver); margin-top: 2px; }
+
+#rosterBody { padding-top: var(--space-1); }
+
 .checkbox-list {
   display: flex;
   flex-direction: column;
