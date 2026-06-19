@@ -220,6 +220,40 @@ function syncMemberUserAccount(oldEmail, name, newEmail, memberId) {
   if (changed) saveUsers(users);
 }
 
+// Keep login account in sync when admin edits a trainer's email/name.
+function syncTrainerUserAccount(oldEmail, name, newEmail, trainerId) {
+  var users = getUsers();
+  var oldTarget = normalizeEmail(oldEmail);
+  var changed = false;
+
+  for (var i = 0; i < users.length; i++) {
+    if (users[i].role !== "trainer") continue;
+    var match = normalizeEmail(users[i].email) === oldTarget ||
+                (trainerId && users[i].linkedId === trainerId);
+    if (match) {
+      users[i].name = name;
+      users[i].email = newEmail.trim();
+      users[i].linkedId = trainerId;
+      changed = true;
+      break;
+    }
+  }
+
+  if (changed) saveUsers(users);
+}
+
+// Remove the login account when admin deletes a trainer.
+function removeTrainerUserAccount(email, trainerId) {
+  var users = getUsers();
+  var oldTarget = normalizeEmail(email);
+  var filtered = users.filter(function (user) {
+    if (user.role !== "trainer") return true;
+    if (trainerId && user.linkedId === trainerId) return false;
+    return normalizeEmail(user.email) !== oldTarget;
+  });
+  if (filtered.length !== users.length) saveUsers(filtered);
+}
+
 // Member self-service: update name/email on the login account.
 function updateUserProfile(oldEmail, data) {
   var users = getUsers();

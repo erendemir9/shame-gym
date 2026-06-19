@@ -51,6 +51,8 @@ function isMemberRole() {
   return getRole() === "member";
 }
 
+var editingClassId = null;
+
 function populateTrainerSelect() {
   var select = document.getElementById("cTrainer");
   var trainers = getTrainers();
@@ -87,7 +89,7 @@ function configureScheduleTableHeaders() {
   addHead("Time");
   addHead("Duration");
   addHead("Spots");
-  if (isMemberRole()) addHead("Actions");
+  if (isMemberRole() || canManageSchedules()) addHead("Actions");
 }
 
 function renderScheduleRow(item) {
@@ -144,6 +146,27 @@ function renderScheduleRow(item) {
     }
 
     tr.appendChild(actionsTd);
+  } else if (canManageSchedules()) {
+    var adminActionsTd = document.createElement("td");
+    adminActionsTd.className = "row-actions";
+
+    var editBtn = document.createElement("button");
+    editBtn.className = "btn btn-ghost btn-sm";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", function () {
+      openClassModalForEdit(item);
+    });
+
+    var deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-ghost btn-sm";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", function () {
+      deleteClass(item);
+    });
+
+    adminActionsTd.appendChild(editBtn);
+    adminActionsTd.appendChild(deleteBtn);
+    tr.appendChild(adminActionsTd);
   }
 
   return tr;
@@ -180,9 +203,25 @@ function renderSchedules() {
 }
 
 function openClassModal() {
+  editingClassId = null;
+  document.getElementById("classModalTitle").textContent = "Create class";
   document.getElementById("classForm").reset();
   clearAllClassErrors();
   populateTrainerSelect();
+  document.getElementById("classModal").classList.add("open");
+}
+
+function openClassModalForEdit(item) {
+  editingClassId = item.id;
+  document.getElementById("classModalTitle").textContent = "Edit class";
+  document.getElementById("cName").value = item.className;
+  populateTrainerSelect();
+  document.getElementById("cTrainer").value = item.trainerName;
+  document.getElementById("cDate").value = item.date;
+  document.getElementById("cTime").value = item.time;
+  document.getElementById("cDuration").value = item.duration;
+  document.getElementById("cCapacity").value = item.capacity;
+  clearAllClassErrors();
   document.getElementById("classModal").classList.add("open");
 }
 
@@ -233,6 +272,12 @@ function validateClassForm() {
   if (capacity.value === "" || Number(capacity.value) <= 0) {
     showFieldError(capacity, document.getElementById("cCapacityError"), "Enter a capacity.");
     ok = false;
+  } else if (editingClassId) {
+    var enrolled = getEnrollmentCount(editingClassId);
+    if (Number(capacity.value) < enrolled) {
+      showFieldError(capacity, document.getElementById("cCapacityError"), "Capacity cannot be below current enrollments (" + enrolled + ").");
+      ok = false;
+    }
   }
   return ok;
 }
@@ -240,21 +285,56 @@ function validateClassForm() {
 function saveClass() {
   if (!validateClassForm()) return;
 
-  var schedules = getSchedules();
-  schedules.push({
-    id: generateId(),
+  var classData = {
     className: document.getElementById("cName").value.trim(),
     trainerName: document.getElementById("cTrainer").value,
     date: document.getElementById("cDate").value,
     time: document.getElementById("cTime").value,
     duration: Number(document.getElementById("cDuration").value),
     capacity: Number(document.getElementById("cCapacity").value)
-  });
+  };
+
+  var schedules = getSchedules();
+
+  if (editingClassId) {
+    for (var i = 0; i < schedules.length; i++) {
+      if (schedules[i].id === editingClassId) {
+        schedules[i].className = classData.className;
+        schedules[i].trainerName = classData.trainerName;
+        schedules[i].date = classData.date;
+        schedules[i].time = classData.time;
+        schedules[i].duration = classData.duration;
+        schedules[i].capacity = classData.capacity;
+        break;
+      }
+    }
+    saveSchedules(schedules);
+    closeClassModal();
+    renderSchedules();
+    showToast("Class updated successfully", "success");
+    return;
+  }
+
+  classData.id = generateId();
+  schedules.push(classData);
   saveSchedules(schedules);
 
   closeClassModal();
   renderSchedules();
   showToast("Class created successfully", "success");
+}
+
+function deleteClass(item) {
+  var enrolled = getEnrollmentCount(item.id);
+  var message = enrolled
+    ? "Delete " + item.className + "? " + enrolled + " member(s) are enrolled and will be unenrolled."
+    : "Delete " + item.className + "?";
+  if (!confirm(message)) return;
+
+  saveSchedules(getSchedules().filter(function (schedule) { return schedule.id !== item.id; }));
+  removeEnrollmentsForClass(item.id);
+  renderSchedules();
+  showToast("Class deleted", "info");
 }
 
 function initSchedulePage() {

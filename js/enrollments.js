@@ -71,3 +71,8 @@ function unenrollFromClass(classId, memberEmail) {
   saveEnrollments(list);
   return { ok: true };
 }
+
+function removeEnrollmentsForClass(classId) {
+  var list = getEnrollments().filter(function (e) { return e.classId !== classId; });
+  saveEnrollments(list);
+}

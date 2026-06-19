@@ -60,6 +60,40 @@ function renderEmptyState(container, title, message, ctaLabel, ctaHandler) {
   }
 }
 
+var editingTrainerId = null;
+var editingTrainerEmail = null;
+var editingTrainerName = null;
+
+function normalizeTrainerEmail(email) {
+  return email ? email.trim().toLowerCase() : "";
+}
+
+function syncScheduleTrainerName(oldName, newName) {
+  if (!oldName || oldName === newName) return;
+  var schedules = getSchedules();
+  var changed = false;
+  schedules.forEach(function (schedule) {
+    if (schedule.trainerName === oldName) {
+      schedule.trainerName = newName;
+      changed = true;
+    }
+  });
+  if (changed) saveSchedules(schedules);
+}
+
+function clearMemberAssignmentsForTrainer(email) {
+  var target = normalizeTrainerEmail(email);
+  var members = getMembers();
+  var changed = false;
+  members.forEach(function (member) {
+    if (normalizeTrainerEmail(member.assignedTrainerEmail) === target) {
+      member.assignedTrainerEmail = "";
+      changed = true;
+    }
+  });
+  if (changed) saveMembers(members);
+}
+
 // ---------- RENDERING ----------
 
 // Build one trainer card element.
@@ -101,6 +135,29 @@ function renderTrainerCard(trainer) {
   contact.textContent = trainer.email + " · " + trainer.phone;
   card.appendChild(contact);
 
+  if (canManageTrainers()) {
+    var actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    var editBtn = document.createElement("button");
+    editBtn.className = "btn btn-ghost btn-sm";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", function () {
+      openTrainerModalForEdit(trainer);
+    });
+
+    var deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-ghost btn-sm";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", function () {
+      deleteTrainer(trainer);
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+    card.appendChild(actions);
+  }
+
   return card;
 }
 
@@ -134,9 +191,27 @@ function renderTrainers() {
 
 // Open the modal ready to add a trainer.
 function openTrainerModal() {
+  editingTrainerId = null;
+  editingTrainerEmail = null;
+  editingTrainerName = null;
+  document.getElementById("trainerModalTitle").textContent = "Add trainer";
   document.getElementById("trainerForm").reset();
   document.getElementById("tPhoneCountry").value = "US";
   initPhoneField("tPhoneCountry", "tPhone", "tPhoneHint");
+  clearAllTrainerErrors();
+  document.getElementById("trainerModal").classList.add("open");
+}
+
+function openTrainerModalForEdit(trainer) {
+  editingTrainerId = trainer.id;
+  editingTrainerEmail = trainer.email;
+  editingTrainerName = trainer.name;
+  document.getElementById("trainerModalTitle").textContent = "Edit trainer";
+  document.getElementById("tName").value = trainer.name;
+  document.getElementById("tEmail").value = trainer.email;
+  setPhoneFieldValues("tPhoneCountry", "tPhone", "tPhoneHint", trainer.phone);
+  document.getElementById("tSpec").value = trainer.specialization;
+  document.getElementById("tAvail").value = trainer.availability;
   clearAllTrainerErrors();
   document.getElementById("trainerModal").classList.add("open");
 }
@@ -195,12 +270,10 @@ function validateTrainerForm() {
   return ok;
 }
 
-// Save a new trainer: validate, push, persist, re-render, toast.
 function saveTrainer() {
   if (!validateTrainerForm()) return;
 
   var trainerData = {
-    id: generateId(),
     name: document.getElementById("tName").value.trim(),
     email: document.getElementById("tEmail").value.trim(),
     phone: getPhoneFormValue("tPhoneCountry", "tPhone"),
@@ -209,6 +282,41 @@ function saveTrainer() {
   };
 
   var trainers = getTrainers();
+
+  if (editingTrainerId) {
+    for (var i = 0; i < trainers.length; i++) {
+      if (trainers[i].id === editingTrainerId) {
+        syncTrainerUserAccount(editingTrainerEmail, trainerData.name, trainerData.email, editingTrainerId);
+        syncScheduleTrainerName(editingTrainerName, trainerData.name);
+        if (normalizeTrainerEmail(editingTrainerEmail) !== normalizeTrainerEmail(trainerData.email)) {
+          var members = getMembers();
+          var oldTarget = normalizeTrainerEmail(editingTrainerEmail);
+          var newEmail = trainerData.email.trim();
+          var membersChanged = false;
+          members.forEach(function (member) {
+            if (normalizeTrainerEmail(member.assignedTrainerEmail) === oldTarget) {
+              member.assignedTrainerEmail = newEmail;
+              membersChanged = true;
+            }
+          });
+          if (membersChanged) saveMembers(members);
+        }
+        trainers[i].name = trainerData.name;
+        trainers[i].email = trainerData.email;
+        trainers[i].phone = trainerData.phone;
+        trainers[i].specialization = trainerData.specialization;
+        trainers[i].availability = trainerData.availability;
+        break;
+      }
+    }
+    saveTrainers(trainers);
+    closeTrainerModal();
+    renderTrainers();
+    showToast("Trainer updated successfully", "success");
+    return;
+  }
+
+  trainerData.id = generateId();
   trainers.push(trainerData);
   saveTrainers(trainers);
   createPendingUser(trainerData.email, trainerData.name, "trainer", trainerData.id);
@@ -216,6 +324,17 @@ function saveTrainer() {
   closeTrainerModal();
   renderTrainers();
   showToast("Trainer added. They can activate their account from the login page.", "success");
+}
+
+function deleteTrainer(trainer) {
+  if (!confirm("Delete " + trainer.name + "? Their login account will be removed.")) return;
+
+  var trainers = getTrainers().filter(function (item) { return item.id !== trainer.id; });
+  saveTrainers(trainers);
+  removeTrainerUserAccount(trainer.email, trainer.id);
+  clearMemberAssignmentsForTrainer(trainer.email);
+  renderTrainers();
+  showToast("Trainer deleted", "info");
 }
 
 // ---------- WIRING ----------
