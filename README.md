@@ -117,8 +117,7 @@ shame-gym/
   profile.html        Member self-service profile edit
 
   css/
-    style.css         Theme, layout, components, animations
-    workouts.css      Workout-specific UI
+    style.css         Theme, layout, components, animations, workouts
 
   js/
     auth.js           Users, permissions, session, guards, sidebar
@@ -260,7 +259,7 @@ Seed data and demo accounts are recreated automatically on next load.
 - **`textContent` over `innerHTML`** when rendering user data — reduces injection risk.
 - **Remove, don’t hide** — restricted controls are not added to the DOM for unauthorized roles.
 - **Splash screen** — plays once per browser session on login (`sessionStorage`); skipped after logout flag clear.
-- **Styles** — shared design tokens in `css/style.css`; workout-specific rules in `css/workouts.css`.
+- **Styles** — single stylesheet in `css/style.css` (theme, layout, components, workouts).
 
 ---
 
