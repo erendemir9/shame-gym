@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 
   <!-- GUARDS: need a session, and the role must be allowed to see Trainers. -->
   <script src="js/auth.js"></script>
@@ -41,7 +42,7 @@
       </div>
 
       <!-- Cards are filled by renderTrainers() from localStorage. -->
-      <div class="cards-grid" id="trainersGrid"></div>
+      <div class="cards-grid reveal-group" id="trainersGrid"></div>
     </main>
   </div>
 

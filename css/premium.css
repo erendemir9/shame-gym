@@ -1,6 +1,7 @@
 /* ============================================================
    S.H.A.M.E GYM — Premium UI layer (ui-ux-redesign-v1)
    Extends style.css tokens. Load after style.css on every page.
+   Motion layer: css/motion.css (v2-motion branch)
    ============================================================ */
 
 :root {

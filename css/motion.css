@@ -1,0 +1,428 @@
+/* ============================================================
+   S.H.A.M.E GYM — Motion layer (ui-ux-redesign-v2-motion)
+   Extends premium.css. Load after premium.css on every page.
+   ============================================================ */
+
+:root {
+  --motion-duration-fast: 0.2s;
+  --motion-duration: 0.55s;
+  --motion-duration-slow: 0.85s;
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-stagger: 0.08s;
+  --perspective: 1400px;
+  --tilt-max: 3deg;
+  --tilt-lift: 3px;
+}
+
+/* ---------- Page cinematic entrance ---------- */
+body.motion-ready .main.page-enter,
+body.motion-ready .login-wrap {
+  animation: cinematic-page-in 0.7s var(--motion-ease) both;
+}
+
+body.motion-ready .page-header.reveal {
+  transition-duration: var(--motion-duration-slow);
+}
+
+@keyframes cinematic-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- Enhanced scroll reveal variants ---------- */
+.reveal {
+  transition:
+    opacity var(--motion-duration) var(--motion-ease),
+    transform var(--motion-duration) var(--motion-ease),
+    filter var(--motion-duration) var(--motion-ease);
+  filter: blur(4px);
+}
+.reveal.is-visible {
+  filter: blur(0);
+}
+
+.reveal-scale {
+  transform: translateY(20px) scale(0.97);
+}
+.reveal-scale.is-visible {
+  transform: translateY(0) scale(1);
+}
+
+.reveal-fade {
+  transform: none;
+  filter: none;
+}
+.reveal-fade.is-visible {
+  transform: none;
+  filter: none;
+  opacity: 1;
+}
+
+.login-card.reveal {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+.login-card.reveal-fade {
+  opacity: 0;
+}
+.login-card.reveal-fade.is-visible {
+  opacity: 1;
+}
+
+.login-card .btn,
+.login-card input,
+.login-card select,
+.login-card button,
+.login-card summary {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.reveal-slide-left {
+  transform: translateX(-16px);
+  opacity: 0;
+}
+.reveal-slide-left.is-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Stagger via JS-set custom property */
+.reveal-stagger {
+  transition-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+/* ---------- 3D tilt cards ---------- */
+.motion-tilt {
+  perspective: var(--perspective);
+  transform-style: preserve-3d;
+}
+
+.motion-tilt-inner {
+  position: relative;
+  transition: transform 0.35s var(--motion-ease-out), box-shadow 0.35s var(--motion-ease-out);
+  transform-style: preserve-3d;
+  isolation: isolate;
+}
+
+.motion-tilt.is-hover .motion-tilt-inner {
+  will-change: transform;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(var(--primary-rgb), 0.12);
+}
+
+.motion-tilt-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--shine-x, 50%) var(--shine-y, 50%),
+    rgba(255, 255, 255, 0.10) 0%,
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.motion-tilt.is-hover .motion-tilt-inner::after {
+  opacity: 1;
+}
+
+.motion-tilt-inner .btn,
+.motion-tilt-inner a,
+.motion-tilt-inner button,
+.motion-tilt-inner input,
+.motion-tilt-inner select,
+.motion-tilt-inner textarea {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+/* Stat cards: preserve existing card-enter, add motion layer */
+.stat-card.motion-tilt .motion-tilt-inner {
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* ---------- Premium panel shine sweep ---------- */
+.premium-panel.motion-shine::before {
+  animation: shine-sweep 4s ease-in-out infinite;
+}
+
+@keyframes shine-sweep {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ---------- Buttons: micro-interactions ---------- */
+.btn {
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease),
+    box-shadow var(--motion-duration-fast) ease,
+    background-color var(--motion-duration-fast) ease,
+    border-color var(--motion-duration-fast) ease,
+    filter var(--motion-duration-fast) ease;
+}
+
+.btn:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.btn-primary:not(:disabled):hover {
+  background-size: 150% 150%;
+  background-position: 100% 50%;
+}
+
+.btn-ghost:not(:disabled):hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.btn:active:not(:disabled),
+.btn.btn-pressed {
+  transform: scale(0.96) !important;
+  filter: brightness(0.98);
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.35);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ---------- Sidebar / nav motion ---------- */
+.sidebar {
+  transition: transform var(--motion-duration) var(--motion-ease);
+}
+
+.sidebar-overlay {
+  display: none;
+  opacity: 0;
+  transition: opacity var(--motion-duration) ease;
+  pointer-events: none;
+}
+
+body.sidebar-open .sidebar-overlay {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+  animation: overlay-fade-in 0.35s ease forwards;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.nav-link.active::before {
+  animation: nav-indicator-in 0.4s var(--motion-ease) forwards;
+}
+
+@keyframes nav-indicator-in {
+  from { opacity: 0; transform: scaleY(0.3); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+.nav-link {
+  transition:
+    background-color var(--motion-duration-fast) ease,
+    color var(--motion-duration-fast) ease,
+    transform var(--motion-duration-fast) var(--motion-ease),
+    border-color var(--motion-duration-fast) ease,
+    box-shadow var(--motion-duration-fast) ease;
+}
+
+/* ---------- Login cinematic ---------- */
+.login-card.reveal.is-visible {
+  animation: login-card-pop 0.8s var(--motion-ease) both;
+  filter: none;
+}
+
+@keyframes login-card-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.94);
+  }
+  70% {
+    transform: translateY(-4px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-ambient-a {
+  animation: ambient-drift-a 12s ease-in-out infinite alternate;
+}
+.login-ambient-b {
+  animation: ambient-drift-b 14s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift-a {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(30px, -20px) scale(1.12); }
+}
+@keyframes ambient-drift-b {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-25px, 15px) scale(1.1); }
+}
+
+.field input,
+.field select {
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.35s var(--motion-ease),
+    transform 0.25s ease;
+}
+
+.field input:focus,
+.field select:focus {
+  transform: translateY(-1px);
+}
+
+/* ---------- Dashboard stats stagger ---------- */
+.stats-grid .stat-card.reveal-stagger {
+  transition-delay: calc(var(--reveal-index, 0) * 0.12s);
+}
+
+/* ---------- Tables / lists ---------- */
+tbody tr {
+  transition:
+    background-color var(--motion-duration-fast) ease,
+    transform var(--motion-duration-fast) var(--motion-ease);
+}
+
+tbody tr:hover {
+  transform: translateX(3px);
+}
+
+.table-wrap.reveal.is-visible {
+  animation: table-rise 0.6s var(--motion-ease) both;
+}
+
+@keyframes table-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.roster-row:hover {
+  transform: translateX(4px);
+}
+
+.simple-list li {
+  transition: transform var(--motion-duration-fast) ease, color var(--motion-duration-fast) ease;
+}
+.simple-list li:hover {
+  transform: translateX(4px);
+  color: var(--white);
+}
+
+/* ---------- Modals ---------- */
+.modal-backdrop {
+  transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.open {
+  animation: backdrop-in 0.35s ease forwards;
+}
+
+.modal-backdrop.is-closing {
+  animation: backdrop-out 0.25s ease forwards;
+}
+
+.modal-backdrop.is-closing .modal {
+  animation: modal-out 0.25s ease forwards;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+/* ---------- Workout cards ---------- */
+.wk-day-card {
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease),
+    border-color var(--motion-duration-fast) ease,
+    box-shadow var(--motion-duration-fast) ease;
+}
+.wk-day-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Toast entrance ---------- */
+.toast {
+  animation: toast-pop 0.4s var(--motion-ease) both;
+}
+
+@keyframes toast-pop {
+  from { opacity: 0; transform: translateX(24px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ---------- Reduced motion (required) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+  .reveal,
+  .reveal.is-visible {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .motion-tilt-inner::after {
+    display: none;
+  }
+  tbody tr:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Mobile: disable tilt, lighter motion ---------- */
+@media (max-width: 768px), (hover: none), (pointer: coarse) {
+  .motion-tilt-inner {
+    transform: none !important;
+  }
+  .motion-tilt.is-hover .motion-tilt-inner::after {
+    opacity: 0;
+  }
+  tbody tr:hover {
+    transform: none;
+  }
+  .reveal {
+    filter: none;
+  }
+}
