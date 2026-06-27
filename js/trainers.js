@@ -1,9 +1,92 @@
 /* ============================================================
    trainers.js — trainer management (IAP-40 add trainer).
-   Same pattern as members, but rendered as a grid of cards:
-     renderTrainers()  -> draw cards from the saved array
-     validate -> save -> re-render -> showToast
+   Read/list view loads from api/trainers/list.php with localStorage fallback.
+   Add/edit/delete still use localStorage until write APIs are added later.
    ============================================================ */
+
+var TRAINERS_API_URL = "api/trainers/list.php";
+
+// Trainers currently shown on the page (null until first load finishes).
+var pageTrainerList = null;
+
+// ---------- API READ HELPERS ----------
+
+function mapApiTrainerToFrontendTrainer(apiTrainer) {
+  return {
+    id: "t" + apiTrainer.id,
+    name: apiTrainer.full_name,
+    email: apiTrainer.email,
+    phone: apiTrainer.phone || "",
+    specialization: apiTrainer.specialization || "",
+    availability: apiTrainer.availability || ""
+  };
+}
+
+function loadTrainersFromApi() {
+  return fetch(TRAINERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load trainers."
+          };
+        }
+
+        var apiTrainers = data.data && data.data.trainers ? data.data.trainers : [];
+        var mappedTrainers = apiTrainers.map(mapApiTrainerToFrontendTrainer);
+
+        return {
+          ok: true,
+          trainers: mappedTrainers
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadTrainersWithFallback() {
+  return loadTrainersFromApi().then(function (result) {
+    if (result.ok) {
+      pageTrainerList = result.trainers;
+      renderTrainers();
+      return;
+    }
+
+    console.warn("Trainers API unavailable:", result.message);
+    pageTrainerList = getTrainers();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load trainers from server. Showing saved local data.", "info");
+    }
+
+    renderTrainers();
+  });
+}
+
+function refreshTrainersFromLocalStorage() {
+  pageTrainerList = getTrainers();
+  renderTrainers();
+}
 
 // ---------- SMALL SHARED FORM HELPERS ----------
 // (Same helpers as the other CRUD pages so every form behaves identically.)
@@ -161,9 +244,9 @@ function renderTrainerCard(trainer) {
   return card;
 }
 
-// Read trainers from localStorage and (re)draw the whole grid.
+// Read trainers for display and (re)draw the whole grid.
 function renderTrainers() {
-  var trainers = getTrainers();
+  var trainers = pageTrainerList !== null ? pageTrainerList : getTrainers();
   var grid = document.getElementById("trainersGrid");
   grid.innerHTML = ""; // clear before redrawing
 
@@ -311,7 +394,7 @@ function saveTrainer() {
     }
     saveTrainers(trainers);
     closeTrainerModal();
-    renderTrainers();
+    refreshTrainersFromLocalStorage();
     showToast("Trainer updated successfully", "success");
     return;
   }
@@ -322,7 +405,7 @@ function saveTrainer() {
   createPendingUser(trainerData.email, trainerData.name, "trainer", trainerData.id);
 
   closeTrainerModal();
-  renderTrainers();
+  refreshTrainersFromLocalStorage();
   showToast("Trainer added. They can activate their account from the login page.", "success");
 }
 
@@ -333,7 +416,7 @@ function deleteTrainer(trainer) {
   saveTrainers(trainers);
   removeTrainerUserAccount(trainer.email, trainer.id);
   clearMemberAssignmentsForTrainer(trainer.email);
-  renderTrainers();
+  refreshTrainersFromLocalStorage();
   showToast("Trainer deleted", "info");
 }
 

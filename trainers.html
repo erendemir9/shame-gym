@@ -113,7 +113,7 @@
   <script>
     mountSidebar("trainers"); // sidebar adapts to the role
     initTrainerPage();        // wire (admin) or strip (read-only) management UI
-    renderTrainers();         // draw the cards on load
+    loadTrainersWithFallback(); // load from PHP API, fallback to localStorage
   </script>
   <script src="js/ui-enhancements.js"></script>
 </body>
