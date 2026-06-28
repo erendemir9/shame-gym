@@ -1,11 +1,12 @@
 /* ============================================================
    members.js — member management (IAP-38 register).
    Read/list view loads from api/members/list.php with localStorage fallback.
-   Delete uses api/members/delete.php (admin soft delete).
-   Add/edit still use localStorage until write APIs are added later.
+   Create/update/delete use PHP APIs with localStorage emergency fallback.
    ============================================================ */
 
 var MEMBERS_API_URL = "api/members/list.php";
+var MEMBERS_CREATE_API_URL = "api/members/create.php";
+var MEMBERS_UPDATE_API_URL = "api/members/update.php";
 var MEMBERS_DELETE_API_URL = "api/members/delete.php";
 
 // Members currently shown on the page (null until first load finishes).
@@ -179,6 +180,161 @@ function confirmDeleteMember(member) {
   }
 
   handleDeleteMember(member);
+}
+
+// ---------- API WRITE HELPERS ----------
+
+function resolveTrainerIdFromEmail(trainerEmail) {
+  if (!trainerEmail || trainerEmail.trim() === "") {
+    return null;
+  }
+
+  var target = normalizeMemberEmail(trainerEmail);
+  var trainers = getTrainers();
+
+  for (var i = 0; i < trainers.length; i++) {
+    if (normalizeMemberEmail(trainers[i].email) === target) {
+      var match = String(trainers[i].id).match(/^t(\d+)$/);
+      if (match) return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function mapFrontendMemberToApiPayload(memberData) {
+  var apiPayload = {
+    full_name: memberData.name,
+    email: memberData.email,
+    phone: memberData.phone || null,
+    membership_type: memberData.type,
+    start_date: memberData.startDate,
+    status: "active"
+  };
+
+  var trainerId = resolveTrainerIdFromEmail(memberData.assignedTrainerEmail);
+  apiPayload.assigned_trainer_id = trainerId;
+
+  if (memberData.id) {
+    apiPayload.id = memberData.id;
+  }
+
+  return apiPayload;
+}
+
+function normalizeMemberApiResponse(apiMember) {
+  return mapApiMemberToFrontendMember(apiMember);
+}
+
+function callMemberWriteApi(url, apiPayload) {
+  return fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(apiPayload)
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Request failed.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Success",
+          member: data.data && data.data.member
+            ? normalizeMemberApiResponse(data.data.member)
+            : null,
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function createMemberWithApi(memberData) {
+  return callMemberWriteApi(
+    MEMBERS_CREATE_API_URL,
+    mapFrontendMemberToApiPayload(memberData)
+  );
+}
+
+function updateMemberWithApi(memberData) {
+  return callMemberWriteApi(
+    MEMBERS_UPDATE_API_URL,
+    mapFrontendMemberToApiPayload(memberData)
+  );
+}
+
+function saveMemberWithApi(memberData, isEdit) {
+  var apiCall = isEdit ? updateMemberWithApi(memberData) : createMemberWithApi(memberData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return result;
+    }
+
+    if (result.networkError) {
+      saveMemberToLocalStorage(memberData, isEdit);
+      return {
+        ok: true,
+        localOnly: true,
+        message: "Server unavailable. Saved locally only."
+      };
+    }
+
+    return result;
+  });
+}
+
+function saveMemberToLocalStorage(memberData, isEdit) {
+  var members = getMembers();
+
+  if (isEdit) {
+    for (var i = 0; i < members.length; i++) {
+      if (members[i].id === memberData.id) {
+        syncMemberUserAccount(editingMemberEmail, memberData.name, memberData.email, memberData.id);
+        members[i].name = memberData.name;
+        members[i].email = memberData.email;
+        members[i].phone = memberData.phone;
+        members[i].type = memberData.type;
+        members[i].startDate = memberData.startDate;
+        members[i].assignedTrainerEmail = memberData.assignedTrainerEmail;
+        break;
+      }
+    }
+    saveMembers(members);
+    return;
+  }
+
+  memberData.id = generateId();
+  members.push(memberData);
+  saveMembers(members);
+  createPendingUser(memberData.email, memberData.name, "member", memberData.id);
 }
 
 // ---------- SMALL SHARED FORM HELPERS ----------
@@ -521,7 +677,8 @@ function saveMember() {
   if (!validateMemberForm()) return;
 
   var assignedSelect = document.getElementById("mAssignedTrainer");
-  var data = {
+  var memberData = {
+    id: editingMemberId,
     name: document.getElementById("mName").value.trim(),
     email: document.getElementById("mEmail").value.trim(),
     phone: getPhoneFormValue("mPhoneCountry", "mPhone"),
@@ -530,34 +687,36 @@ function saveMember() {
     assignedTrainerEmail: assignedSelect ? assignedSelect.value : ""
   };
 
-  var members = getMembers();
+  var isEdit = !!editingMemberId;
 
-  if (editingMemberId) {
-    for (var i = 0; i < members.length; i++) {
-      if (members[i].id === editingMemberId) {
-        syncMemberUserAccount(editingMemberEmail, data.name, data.email, editingMemberId);
-        members[i].name = data.name;
-        members[i].email = data.email;
-        members[i].phone = data.phone;
-        members[i].type = data.type;
-        members[i].startDate = data.startDate;
-        members[i].assignedTrainerEmail = data.assignedTrainerEmail;
-        break;
+  saveMemberWithApi(memberData, isEdit).then(function (result) {
+    if (!result.ok) {
+      console.warn("Member save failed:", result.message);
+      if (typeof showToast === "function") {
+        showToast(result.message, "error");
       }
+      return;
     }
-    saveMembers(members);
+
     closeMemberModal();
-    refreshMembersFromLocalStorage();
-    showToast("Member updated successfully", "success");
-  } else {
-    data.id = generateId();
-    members.push(data);
-    saveMembers(members);
-    createPendingUser(data.email, data.name, "member", data.id);
-    closeMemberModal();
-    refreshMembersFromLocalStorage();
-    showToast("Member added. They can activate their account from the login page.", "success");
-  }
+
+    if (result.localOnly) {
+      refreshMembersFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(
+        result.message,
+        isEdit ? "success" : "success"
+      );
+    }
+
+    loadMembersWithFallback();
+  });
 }
 
 function initMemberPage() {
