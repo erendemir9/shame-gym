@@ -151,7 +151,7 @@ function validateWhatsAppUploadFile(array $fileEntry)
     }
 
     $detectedMime = mime_content_type($tmpPath);
-    $allowedMimes = ['text/plain', 'application/octet-stream'];
+    $allowedMimes = ['text/plain', 'application/octet-stream', 'text/csv', 'text/x-csv'];
     if ($detectedMime !== false && !in_array($detectedMime, $allowedMimes, true)) {
         return ['ok' => false, 'message' => 'File must be a plain text export.'];
     }

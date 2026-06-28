@@ -2,7 +2,7 @@
 
 **Strength · Health · Athletics · Motivation · Excellence**
 
-A gym organization management web application for members, trainers, class schedules, enrollments, workout programs, staff meetings, and role-based dashboards. The application runs in the browser with a PHP + MySQL backend on XAMPP.
+A gym organization management web application backed by PHP, MySQL, and vanilla JavaScript on XAMPP. The system covers member and trainer management, class scheduling, enrollments, workouts, staff meetings, documents, finance, confidential polls, and WhatsApp chat export analysis.
 
 ---
 
@@ -16,15 +16,16 @@ A gym organization management web application for members, trainers, class sched
 6. [User roles and access](#user-roles-and-access)
 7. [Data persistence](#data-persistence)
 8. [Database setup](#database-setup)
-9. [Database schema overview](#database-schema-overview)
-10. [Database ER diagram](#database-er-diagram)
-11. [Backend API structure](#backend-api-structure)
-12. [Running the project locally](#running-the-project-locally)
-13. [Demo accounts](#demo-accounts)
-14. [Testing checklist](#testing-checklist)
-15. [Security notes](#security-notes)
-16. [Current scope and future expansion](#current-scope-and-future-expansion)
-17. [Project structure](#project-structure)
+9. [Upload directory setup](#upload-directory-setup)
+10. [Database schema overview](#database-schema-overview)
+11. [Database ER diagram](#database-er-diagram)
+12. [Backend API structure](#backend-api-structure)
+13. [Running the project locally](#running-the-project-locally)
+14. [Demo accounts](#demo-accounts)
+15. [Testing checklist](#testing-checklist)
+16. [Security notes](#security-notes)
+17. [Future improvements](#future-improvements)
+18. [Project structure](#project-structure)
 
 ---
 
@@ -34,10 +35,15 @@ S.H.A.M.E Gym is a software engineering course project that models day-to-day op
 
 | Area | What the system handles |
 |------|-------------------------|
+| Authentication | Login, logout, PHP sessions, account activation |
 | People | Members, trainers, login accounts |
 | Classes | Timetable, capacity, enrollment |
 | Training | Workout plans and day progress |
 | Operations | Staff meetings and attendees |
+| Documents | Upload, search, role-based download |
+| Finance | Income/expense ledger and summaries (admin) |
+| Polls | Confidential voting with anonymous ballots |
+| WhatsApp analysis | Import `.txt` chat exports and activity summaries (admin) |
 | Self-service | Profile edits and account activation |
 | Reporting | Role-aware dashboard statistics |
 
@@ -71,6 +77,7 @@ flowchart LR
     PDO --> DB[(MySQL shame_gym_db)]
     JS -. session cache / fallback only .-> LS[localStorage]
     Auth -. PHP session .-> Session[(Server Session)]
+    API --> Uploads[uploads/documents and uploads/whatsapp]
 ```
 
 | Layer | Responsibility |
@@ -79,6 +86,7 @@ flowchart LR
 | JavaScript | Render UI, call APIs, enforce page-level access |
 | PHP APIs | Authenticate, validate input, query database, return JSON |
 | MySQL | Persistent storage for all application records |
+| Upload folders | Stored document and WhatsApp export files on disk |
 | localStorage | Session display cache, UI preferences, emergency fallback only |
 
 ---
@@ -97,6 +105,10 @@ flowchart TB
         Sch[schedules.html]
         Wkt[workouts.html]
         Mtg[meetings.html]
+        Doc[documents.html]
+        Fin[finance.html]
+        Pol[polls.html]
+        Wa[whatsapp.html]
         Prf[profile.html]
     end
 
@@ -109,8 +121,12 @@ flowchart TB
         A6[api/enrollments/]
         A7[api/workouts/]
         A8[api/meetings/]
-        A9[api/profile/]
-        A10[api/users/]
+        A9[api/documents/]
+        A10[api/finance/]
+        A11[api/polls/]
+        A12[api/whatsapp/]
+        A13[api/profile/]
+        A14[api/users/]
     end
 
     subgraph DB["MySQL Tables"]
@@ -123,12 +139,20 @@ flowchart TB
         T7[workout_progress]
         T8[meetings]
         T9[meeting_attendees]
+        T10[documents]
+        T11[document_access]
+        T12[finance_transactions]
+        T13[polls]
+        T14[poll_options]
+        T15[votes]
+        T16[vote_receipts]
+        T17[whatsapp_imports]
+        T18[whatsapp_messages]
+        T19[whatsapp_analysis_summary]
     end
 
     AuthP --> A1 --> T1
     Dash --> A2 --> T1
-    Dash --> A2 --> T2
-    Dash --> A2 --> T4
     Mem --> A3 --> T2
     Trn --> A4 --> T3
     Sch --> A5 --> T4
@@ -137,9 +161,19 @@ flowchart TB
     Wkt --> A7 --> T7
     Mtg --> A8 --> T8
     Mtg --> A8 --> T9
-    Prf --> A9 --> T1
-    Mem --> A10 --> T1
-    Mtg --> A10 --> T1
+    Doc --> A9 --> T10
+    Doc --> A9 --> T11
+    Fin --> A10 --> T12
+    Pol --> A11 --> T13
+    Pol --> A11 --> T14
+    Pol --> A11 --> T15
+    Pol --> A11 --> T16
+    Wa --> A12 --> T17
+    Wa --> A12 --> T18
+    Wa --> A12 --> T19
+    Prf --> A13 --> T1
+    Mem --> A14 --> T1
+    Mtg --> A14 --> T1
 ```
 
 **Module distinction**
@@ -149,6 +183,10 @@ flowchart TB
 | Schedules | Group fitness classes that members enroll in |
 | Workouts | Personal training programs with daily progress |
 | Meetings | Internal staff coordination (admin only) |
+| Documents | Shared files with role-based access rules |
+| Finance | Organization income and expense tracking (admin only) |
+| Polls | Confidential organization ballots |
+| WhatsApp | Parsed chat export analytics (admin only; no WhatsApp API) |
 
 ---
 
@@ -212,19 +250,23 @@ Page navigation and API endpoints both enforce the same role rules.
 | Trainers | Full access | No access | No access |
 | Schedules (classes) | Full access | View own classes | View and enroll |
 | Enrollments | Manage rosters | View own rosters | Own enrollments |
-| Profile | No access | No access | Own data |
+| Profile page | No access | No access | Own data |
 | Workout plans | Full access | Manage assigned | View own |
 | Workout progress | Full access | View assigned | Update own |
 | Meetings | Full access | No access | No access |
+| Documents | Upload, edit, archive, download | View/download allowed docs | View/download allowed docs |
+| Finance | Full access | No access | No access |
+| Polls | Create, close, results | Vote once, view allowed results | Vote once, view allowed results |
+| WhatsApp analysis | Full access | No access | No access |
 | Account activation | Yes | Yes | Yes |
 
 **Role summaries**
 
 | Role | Typical tasks |
 |------|---------------|
-| **Admin** | Manage members, trainers, classes, workouts, and staff meetings; view organization stats |
-| **Trainer** | View assigned members, create workout plans, view own class rosters |
-| **Member** | Enroll in classes, follow workout program, edit own profile |
+| **Admin** | Manage members, trainers, classes, workouts, meetings, documents, finance, polls, and WhatsApp imports |
+| **Trainer** | View assigned members, create workout plans, view class rosters, vote in polls, download shared documents |
+| **Member** | Enroll in classes, follow workout program, edit own profile, vote in polls, download shared documents |
 
 ---
 
@@ -235,6 +277,7 @@ Page navigation and API endpoints both enforce the same role rules.
 | **MySQL (`shame_gym_db`)** | Primary source of truth for all application records |
 | **PHP APIs** | Validate sessions, enforce roles, read/write database with PDO |
 | **PHP session** | Server-side authentication state |
+| **Upload folders** | Document files and WhatsApp export files on disk |
 | **localStorage** | Not the primary database |
 
 localStorage is used only for:
@@ -243,6 +286,8 @@ localStorage is used only for:
 - UI preferences (for example splash screen skip)
 - Seed/bootstrap data on first load
 - Emergency fallback when the API is unreachable
+
+Documents, finance, polls, and WhatsApp modules are API-first and do not persist data in localStorage.
 
 Normal create, update, delete, and list operations go through PHP and MySQL.
 
@@ -277,6 +322,33 @@ This creates **`shame_gym_db`** with foreign keys and demo data. Connection sett
 
 ---
 
+## Upload directory setup
+
+Document uploads and WhatsApp imports store files on disk under:
+
+```
+uploads/documents/
+uploads/whatsapp/
+```
+
+Create the folders and make them writable by the Apache user on local XAMPP:
+
+```bash
+mkdir -p uploads/documents uploads/whatsapp
+chmod 0777 uploads/documents uploads/whatsapp
+```
+
+Notes:
+
+- Only `.gitkeep` placeholder files should be committed to version control
+- Uploaded user files must not be committed
+- On macOS XAMPP, Apache typically runs as the `daemon` user and needs write permission on these folders
+- Document uploads accept PDF, DOC, DOCX, TXT, PNG, JPG, and JPEG (max 10 MB)
+- WhatsApp imports accept `.txt` export files only (max 10 MB)
+- This permission setup is intended for local XAMPP development
+
+---
+
 ## Database schema overview
 
 ### Authentication and accounts
@@ -308,20 +380,40 @@ This creates **`shame_gym_db`** with foreign keys and demo data. Connection sett
 | `meetings` | Staff meeting records |
 | `meeting_attendees` | Invited staff (`user_id`, `attendee_email`) |
 
-### Prepared future extensions (no UI yet)
+### Document management
 
 | Table | Purpose |
 |-------|---------|
-| `documents` | Uploaded document metadata |
-| `document_access` | Role-based document visibility |
+| `documents` | Uploaded document metadata and file paths |
+| `document_access` | Role-based document visibility rules |
+
+### Finance
+
+| Table | Purpose |
+|-------|---------|
+| `finance_transactions` | Income and expense ledger |
+
+### Polls and confidential voting
+
+| Table | Purpose |
+|-------|---------|
 | `polls` | Organization ballots |
 | `poll_options` | Poll answer choices |
-| `votes` | Anonymous ballot selections |
-| `vote_receipts` | Duplicate-vote prevention |
-| `finance_transactions` | Income and expense ledger |
-| `whatsapp_imports` | WhatsApp export upload batches |
+| `votes` | Anonymous ballot selections (`anonymous_vote_token`; no `user_id`) |
+| `vote_receipts` | Duplicate-vote prevention only |
+
+### WhatsApp analysis
+
+| Table | Purpose |
+|-------|---------|
+| `whatsapp_imports` | Uploaded WhatsApp `.txt` export batches |
 | `whatsapp_messages` | Parsed chat messages |
-| `whatsapp_analysis_summary` | Precomputed chat analytics |
+| `whatsapp_analysis_summary` | Precomputed dashboard metrics per import |
+
+### Legacy bulk import (schema only)
+
+| Table | Purpose |
+|-------|---------|
 | `import_batches` | Bulk legacy import tracking |
 | `import_errors` | Rejected import rows |
 
@@ -329,7 +421,7 @@ This creates **`shame_gym_db`** with foreign keys and demo data. Connection sett
 
 ## Database ER diagram
 
-Core tables used by the visible application. Foreign key column names match `database/schema.sql`.
+Core operational tables. Foreign key column names match `database/schema.sql`.
 
 ```mermaid
 erDiagram
@@ -377,6 +469,50 @@ erDiagram
         int meeting_id FK
         int user_id FK
     }
+    documents {
+        int id PK
+        int uploaded_by_user_id FK
+    }
+    document_access {
+        int id PK
+        int document_id FK
+        string role
+    }
+    finance_transactions {
+        int id PK
+        int created_by_user_id FK
+    }
+    polls {
+        int id PK
+        int created_by_user_id FK
+    }
+    poll_options {
+        int id PK
+        int poll_id FK
+    }
+    votes {
+        int id PK
+        int poll_id FK
+        int option_id FK
+        string anonymous_vote_token
+    }
+    vote_receipts {
+        int id PK
+        int poll_id FK
+        int user_id FK
+    }
+    whatsapp_imports {
+        int id PK
+        int uploaded_by_user_id FK
+    }
+    whatsapp_messages {
+        int id PK
+        int import_id FK
+    }
+    whatsapp_analysis_summary {
+        int id PK
+        int import_id FK
+    }
 
     users ||--o| members : "linked_member_id"
     users ||--o| trainers : "linked_trainer_id"
@@ -391,26 +527,24 @@ erDiagram
     users ||--o{ meetings : "created_by_user_id"
     meetings ||--o{ meeting_attendees : "meeting_id"
     users ||--o{ meeting_attendees : "user_id"
-```
-
-### Prepared extension tables (schema only)
-
-These tables exist in the schema but are not connected to visible pages today.
-
-```mermaid
-erDiagram
     users ||--o{ documents : "uploaded_by_user_id"
     documents ||--o{ document_access : "document_id"
+    users ||--o{ finance_transactions : "created_by_user_id"
     users ||--o{ polls : "created_by_user_id"
     polls ||--o{ poll_options : "poll_id"
     polls ||--o{ votes : "poll_id"
     poll_options ||--o{ votes : "option_id"
     polls ||--o{ vote_receipts : "poll_id"
     users ||--o{ vote_receipts : "user_id"
-    users ||--o{ finance_transactions : "created_by_user_id"
     users ||--o{ whatsapp_imports : "uploaded_by_user_id"
     whatsapp_imports ||--o{ whatsapp_messages : "import_id"
     whatsapp_imports ||--|| whatsapp_analysis_summary : "import_id"
+```
+
+### Legacy import tables
+
+```mermaid
+erDiagram
     users ||--o{ import_batches : "created_by_user_id"
     import_batches ||--o{ import_errors : "batch_id"
 ```
@@ -432,6 +566,10 @@ All endpoints return JSON. Protected routes require a valid PHP session cookie.
 | `api/enrollments/` | Enrollment list, enroll, unenroll | `enrollments` |
 | `api/workouts/` | Workout plans, progress, archive | `workout_plans`, `workout_progress` |
 | `api/meetings/` | Staff meetings and attendee management | `meetings`, `meeting_attendees` |
+| `api/documents/` | Upload, list, search, download, archive | `documents`, `document_access` |
+| `api/finance/` | Transactions, summary (admin only) | `finance_transactions` |
+| `api/polls/` | Poll CRUD, vote, results | `polls`, `poll_options`, `votes`, `vote_receipts` |
+| `api/whatsapp/` | Import, messages, summary (admin only) | `whatsapp_imports`, `whatsapp_messages`, `whatsapp_analysis_summary` |
 | `api/users/` | Staff user list for meeting attendees; account provisioning | `users` |
 | `api/config/` | Shared database, auth, request, and response helpers | — |
 
@@ -451,6 +589,10 @@ Shared PHP helpers include `requireLogin()`, `requireRole()`, `successResponse()
 | Profile | `profile.html` | `api/profile/me.php` |
 | Workouts | `workouts.html` | `api/workouts/*` |
 | Meetings | `meetings.html` | `api/meetings/*`, `api/users/list.php` |
+| Documents | `documents.html` | `api/documents/*` |
+| Finance | `finance.html` | `api/finance/*` |
+| Polls | `polls.html` | `api/polls/*` |
+| WhatsApp analysis | `whatsapp.html` | `api/whatsapp/*` |
 
 ---
 
@@ -458,9 +600,10 @@ Shared PHP helpers include `requireLogin()`, `requireRole()`, `successResponse()
 
 1. Start **Apache** and **MySQL** in the XAMPP control panel.
 2. Import the database (see [Database setup](#database-setup)).
-3. Open http://localhost/shame-gym/
-4. Log in with a [demo account](#demo-accounts).
-5. Optional: inspect data at http://localhost/phpmyadmin
+3. Create upload folders (see [Upload directory setup](#upload-directory-setup)).
+4. Open http://localhost/shame-gym/
+5. Log in with a [demo account](#demo-accounts).
+6. Optional: inspect data at http://localhost/phpmyadmin
 
 Use `http://localhost/shame-gym/` (not `file://`) so PHP sessions and API calls work correctly.
 
@@ -509,6 +652,8 @@ Passwords match `database/seed.sql`.
 
 ## Testing checklist
 
+### Core modules
+
 - [ ] Log in as admin (`admin@shame.gym`)
 - [ ] Create a new member and assign a trainer
 - [ ] Create a new trainer and confirm they appear in the member trainer dropdown
@@ -522,6 +667,16 @@ Passwords match `database/seed.sql`.
 - [ ] Schedule a staff meeting with attendees (admin)
 - [ ] Refresh each page and confirm data persists from MySQL
 
+### Sprint 3 modules
+
+- [ ] Upload a document as admin, search for it, download it, and archive it
+- [ ] Create a finance transaction and confirm summary totals update
+- [ ] Create a poll as admin, vote once as member, confirm duplicate vote is blocked
+- [ ] View poll results after voting or after poll is closed
+- [ ] Import a WhatsApp `.txt` export as admin, view summary and search parsed messages
+- [ ] Confirm member receives HTTP 403 on finance and WhatsApp APIs
+- [ ] Confirm trainer/member can access documents and polls according to role rules
+
 ---
 
 ## Security notes
@@ -533,15 +688,24 @@ Passwords match `database/seed.sql`.
 | Prepared statements | All database queries use PDO prepared statements |
 | Password storage | bcrypt hashes in `users.password_hash`; never returned in JSON |
 | Account activation | New accounts can require password setup before login |
-| Soft delete | Status fields (`inactive`, `cancelled`, `archived`) used where appropriate |
+| Soft delete | Status fields (`inactive`, `cancelled`, `archived`, `is_available`) used where appropriate |
+| File uploads | Extension and MIME validation, size limits, safe stored filenames, no path traversal |
+| Confidential voting | `votes` stores anonymous tokens only; `vote_receipts` prevents duplicates without revealing choices |
+| Admin-only modules | Finance and WhatsApp endpoints require `requireRole('admin')` |
+| WhatsApp scope | Import-only from exported `.txt` files; no WhatsApp API integration |
 
 ---
 
-## Current scope and future expansion
+## Future improvements
 
-The visible application covers authentication, members, trainers, schedules, enrollments, dashboard, profile, workouts, and staff meetings.
+Possible next steps beyond the current course scope:
 
-The database also includes prepared structures for documents, polls, finance, WhatsApp analytics, and bulk import tracking. These can be connected to additional UI pages in future work without changing the core architecture above.
+- Richer analytics dashboards and export reports
+- Larger file import handling and background processing
+- UI polish and accessibility improvements
+- Production deployment hardening (HTTPS, stricter upload permissions, environment config)
+- Automated test suite for API endpoints
+- Legacy bulk import UI for `import_batches` / `import_errors`
 
 ---
 
@@ -556,7 +720,15 @@ shame-gym/
   schedules.html          Class timetable and enrollment
   workouts.html           Workout plans and member progress
   meetings.html           Staff meetings (admin)
+  documents.html          Document library
+  finance.html            Finance ledger (admin)
+  polls.html              Confidential polls and voting
+  whatsapp.html           WhatsApp export analysis (admin)
   profile.html            Member profile self-edit
+
+  uploads/
+    documents/            Uploaded document files (.gitkeep only in repo)
+    whatsapp/             Stored WhatsApp export files (.gitkeep only in repo)
 
   css/                    Custom stylesheets
   js/                     Page logic and API integration
@@ -574,6 +746,7 @@ shame-gym/
 | `members.js`, `trainers.js`, `schedules.js` | CRUD pages |
 | `enrollments.js` | Class enrollment logic |
 | `workouts.js`, `meetings.js` | Workouts and meetings |
+| `documents.js`, `finance.js`, `polls.js`, `whatsapp.js` | Sprint 3 modules |
 | `profile.js`, `dashboard.js` | Profile and dashboard |
 | `toast.js`, `phone.js` | Notifications and phone input |
 
