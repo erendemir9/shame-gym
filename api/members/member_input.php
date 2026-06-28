@@ -186,9 +186,15 @@ function fetchMemberRowById(PDO $pdo, $memberId)
 {
     $sql = 'SELECT m.id, m.full_name, m.email, m.phone, m.membership_type, m.start_date,
                    m.assigned_trainer_id, t.full_name AS assigned_trainer_name,
-                   m.status, m.created_at, m.updated_at
+                   m.status, m.created_at, m.updated_at,
+                   u.id AS account_user_id,
+                   u.email AS account_email,
+                   u.role AS account_role,
+                   u.needs_password_setup AS account_needs_password_setup,
+                   u.is_active AS account_is_active
             FROM members m
             LEFT JOIN trainers t ON t.id = m.assigned_trainer_id
+            LEFT JOIN users u ON u.linked_member_id = m.id AND u.role = \'member\'
             WHERE m.id = :id
             LIMIT 1';
 

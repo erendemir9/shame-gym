@@ -14,6 +14,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
 require_once __DIR__ . '/member_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
 
@@ -37,12 +38,9 @@ try {
         errorResponse('Assigned trainer not found.', 400);
     }
 
-    $duplicateSql = 'SELECT id FROM members WHERE email = :email LIMIT 1';
-    $duplicateStmt = $pdo->prepare($duplicateSql);
-    $duplicateStmt->execute(['email' => $memberData['email']]);
-    if ($duplicateStmt->fetch()) {
-        errorResponse('A member with this email already exists.', 409);
-    }
+    assertEmailAvailableForNewMember($pdo, $memberData['email']);
+
+    $pdo->beginTransaction();
 
     $insertSql = 'INSERT INTO members
         (full_name, email, phone, membership_type, start_date, assigned_trainer_id, status)
@@ -61,16 +59,31 @@ try {
     ]);
 
     $memberId = (int) $pdo->lastInsertId();
+    createPendingUserForMember(
+        $pdo,
+        $memberId,
+        $memberData['email'],
+        $memberData['full_name']
+    );
+
+    $pdo->commit();
+
     $memberRow = fetchMemberRowById($pdo, $memberId);
 
     if (!$memberRow) {
         errorResponse('Member was created but could not be loaded.', 500);
     }
 
+    $memberPayload = appendMemberAccountFields(formatMemberRow($memberRow), $memberRow);
+
     successResponse([
-        'member' => formatMemberRow($memberRow),
+        'member' => $memberPayload,
     ], 'Member created successfully', 200);
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to create member.', 500, [
         'error' => $e->getMessage(),
     ]);

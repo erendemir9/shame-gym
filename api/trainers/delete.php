@@ -17,6 +17,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
 require_once __DIR__ . '/trainer_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
 
@@ -48,6 +49,8 @@ try {
         errorResponse('Trainer is already inactive.', 409);
     }
 
+    $pdo->beginTransaction();
+
     $updateSql = 'UPDATE trainers
                   SET status = :status, updated_at = CURRENT_TIMESTAMP
                   WHERE id = :id';
@@ -57,8 +60,16 @@ try {
         'id'     => $trainerId,
     ]);
 
+    deactivateLinkedUserForTrainer($pdo, $trainerId);
+
+    $pdo->commit();
+
     successResponse(['trainer_id' => $trainerId], 'Trainer deleted successfully');
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to delete trainer.', 500, [
         'error' => $e->getMessage(),
     ]);

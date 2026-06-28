@@ -14,6 +14,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
 require_once __DIR__ . '/trainer_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
 
@@ -39,15 +40,14 @@ try {
         errorResponse('Trainer not found.', 404);
     }
 
-    $duplicateSql = 'SELECT id FROM trainers WHERE email = :email AND id != :id LIMIT 1';
-    $duplicateStmt = $pdo->prepare($duplicateSql);
-    $duplicateStmt->execute([
-        'email' => $trainerData['email'],
-        'id'    => $trainerId,
-    ]);
-    if ($duplicateStmt->fetch()) {
-        errorResponse('Another trainer already uses this email.', 409);
+    $linkedUser = fetchLinkedUserForTrainer($pdo, $trainerId);
+    $ignoreUserId = $linkedUser ? (int) $linkedUser['id'] : null;
+
+    if (isEmailTakenAcrossAccounts($pdo, $trainerData['email'], null, $trainerId, $ignoreUserId)) {
+        errorResponse('Another trainer, member, or user account already uses this email.', 409);
     }
+
+    $pdo->beginTransaction();
 
     $updateSql = 'UPDATE trainers
                   SET full_name = :full_name,
@@ -70,6 +70,15 @@ try {
         'id'             => $trainerId,
     ]);
 
+    syncUserEmailForTrainer(
+        $pdo,
+        $trainerId,
+        $trainerData['email'],
+        $trainerData['full_name']
+    );
+
+    $pdo->commit();
+
     $trainerRow = fetchTrainerRowById($pdo, $trainerId);
     if (!$trainerRow) {
         errorResponse('Trainer was updated but could not be loaded.', 500);
@@ -79,6 +88,10 @@ try {
         'trainer' => formatTrainerRow($trainerRow),
     ], 'Trainer updated successfully', 200);
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to update trainer.', 500, [
         'error' => $e->getMessage(),
     ]);

@@ -16,36 +16,10 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
+require_once __DIR__ . '/member_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
-
-/**
- * Convert a request id value to a numeric member id.
- *
- * @param mixed $rawId
- * @return int|null
- */
-function parseMemberIdFromRequest($rawId)
-{
-    if ($rawId === null || $rawId === '') {
-        return null;
-    }
-
-    if (is_int($rawId) && $rawId > 0) {
-        return $rawId;
-    }
-
-    if (is_string($rawId) && ctype_digit($rawId)) {
-        $memberId = (int) $rawId;
-        return $memberId > 0 ? $memberId : null;
-    }
-
-    if (is_string($rawId) && preg_match('/^m(\d+)$/i', $rawId, $matches)) {
-        return (int) $matches[1];
-    }
-
-    return null;
-}
 
 try {
     requireRole('admin');
@@ -75,6 +49,8 @@ try {
         errorResponse('Member is already inactive.', 409);
     }
 
+    $pdo->beginTransaction();
+
     $updateSql = 'UPDATE members
                   SET status = :status, updated_at = CURRENT_TIMESTAMP
                   WHERE id = :id';
@@ -84,8 +60,16 @@ try {
         'id'     => $memberId,
     ]);
 
+    deactivateLinkedUserForMember($pdo, $memberId);
+
+    $pdo->commit();
+
     successResponse(['member_id' => $memberId], 'Member deleted successfully');
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to delete member.', 500, [
         'error' => $e->getMessage(),
     ]);

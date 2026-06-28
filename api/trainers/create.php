@@ -14,6 +14,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
 require_once __DIR__ . '/trainer_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
 
@@ -33,12 +34,9 @@ try {
     $trainerData = $normalized['data'];
     $pdo = getDatabaseConnection();
 
-    $duplicateSql = 'SELECT id FROM trainers WHERE email = :email LIMIT 1';
-    $duplicateStmt = $pdo->prepare($duplicateSql);
-    $duplicateStmt->execute(['email' => $trainerData['email']]);
-    if ($duplicateStmt->fetch()) {
-        errorResponse('A trainer with this email already exists.', 409);
-    }
+    assertEmailAvailableForNewTrainer($pdo, $trainerData['email']);
+
+    $pdo->beginTransaction();
 
     $insertSql = 'INSERT INTO trainers
         (full_name, email, phone, specialization, availability, status)
@@ -56,6 +54,15 @@ try {
     ]);
 
     $trainerId = (int) $pdo->lastInsertId();
+    createPendingUserForTrainer(
+        $pdo,
+        $trainerId,
+        $trainerData['email'],
+        $trainerData['full_name']
+    );
+
+    $pdo->commit();
+
     $trainerRow = fetchTrainerRowById($pdo, $trainerId);
 
     if (!$trainerRow) {
@@ -66,6 +73,10 @@ try {
         'trainer' => formatTrainerRow($trainerRow),
     ], 'Trainer created successfully', 200);
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to create trainer.', 500, [
         'error' => $e->getMessage(),
     ]);

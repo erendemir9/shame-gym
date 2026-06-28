@@ -14,6 +14,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/request.php';
 require_once __DIR__ . '/member_input.php';
+require_once __DIR__ . '/../users/account_provisioning.php';
 
 requireHttpMethod('POST');
 
@@ -43,15 +44,14 @@ try {
         errorResponse('Assigned trainer not found.', 400);
     }
 
-    $duplicateSql = 'SELECT id FROM members WHERE email = :email AND id != :id LIMIT 1';
-    $duplicateStmt = $pdo->prepare($duplicateSql);
-    $duplicateStmt->execute([
-        'email' => $memberData['email'],
-        'id'    => $memberId,
-    ]);
-    if ($duplicateStmt->fetch()) {
-        errorResponse('Another member already uses this email.', 409);
+    $linkedUser = fetchLinkedUserForMember($pdo, $memberId);
+    $ignoreUserId = $linkedUser ? (int) $linkedUser['id'] : null;
+
+    if (isEmailTakenAcrossAccounts($pdo, $memberData['email'], $memberId, null, $ignoreUserId)) {
+        errorResponse('Another member, trainer, or user account already uses this email.', 409);
     }
+
+    $pdo->beginTransaction();
 
     $updateSql = 'UPDATE members
                   SET full_name = :full_name,
@@ -76,15 +76,30 @@ try {
         'id'                  => $memberId,
     ]);
 
+    syncUserEmailForMember(
+        $pdo,
+        $memberId,
+        $memberData['email'],
+        $memberData['full_name']
+    );
+
+    $pdo->commit();
+
     $memberRow = fetchMemberRowById($pdo, $memberId);
     if (!$memberRow) {
         errorResponse('Member was updated but could not be loaded.', 500);
     }
 
+    $memberPayload = appendMemberAccountFields(formatMemberRow($memberRow), $memberRow);
+
     successResponse([
-        'member' => formatMemberRow($memberRow),
+        'member' => $memberPayload,
     ], 'Member updated successfully', 200);
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     errorResponse('Failed to update member.', 500, [
         'error' => $e->getMessage(),
     ]);

@@ -44,8 +44,42 @@ function mapApiMemberToFrontendMember(apiMember) {
     type: apiMember.membership_type,
     startDate: apiMember.start_date || "",
     assignedTrainerEmail: resolveAssignedTrainerEmail(apiMember),
-    assignedTrainerName: apiMember.assigned_trainer_name || ""
+    assignedTrainerName: apiMember.assigned_trainer_name || "",
+    accountExists: apiMember.account_exists === true,
+    accountEmail: apiMember.account_email || null,
+    accountRole: apiMember.account_role || null,
+    needsPasswordSetup: typeof apiMember.needs_password_setup === "number"
+      ? apiMember.needs_password_setup
+      : null,
+    accountIsActive: typeof apiMember.account_is_active === "number"
+      ? apiMember.account_is_active
+      : null,
+    accountStatusLabel: apiMember.account_status_label || null
   };
+}
+
+function getMemberAccountBadgeInfo(member) {
+  if (member.accountStatusLabel) {
+    if (member.accountStatusLabel === "Active") {
+      return { className: "badge-green", text: "Active" };
+    }
+    if (member.accountStatusLabel === "Pending activation") {
+      return { className: "badge-amber", text: "Pending" };
+    }
+    if (member.accountStatusLabel === "Inactive") {
+      return { className: "badge-silver", text: "Inactive" };
+    }
+    return { className: "badge-silver", text: "No account" };
+  }
+
+  var status = getAccountStatus(member.email);
+  if (status === "active") {
+    return { className: "badge-green", text: "Active" };
+  }
+  if (status === "pending") {
+    return { className: "badge-amber", text: "Pending" };
+  }
+  return { className: "badge-silver", text: "No account" };
 }
 
 function loadMembersFromApi() {
@@ -496,18 +530,10 @@ function renderMemberRow(member) {
   tr.appendChild(textCell(formatDate(member.startDate)));
 
   var accountTd = document.createElement("td");
-  var status = getAccountStatus(member.email);
+  var accountBadgeInfo = getMemberAccountBadgeInfo(member);
   var statusBadge = document.createElement("span");
-  if (status === "active") {
-    statusBadge.className = "badge badge-green";
-    statusBadge.textContent = "Active";
-  } else if (status === "pending") {
-    statusBadge.className = "badge badge-amber";
-    statusBadge.textContent = "Pending";
-  } else {
-    statusBadge.className = "badge badge-silver";
-    statusBadge.textContent = "No account";
-  }
+  statusBadge.className = "badge " + accountBadgeInfo.className;
+  statusBadge.textContent = accountBadgeInfo.text;
   accountTd.appendChild(statusBadge);
   tr.appendChild(accountTd);
 
