@@ -117,6 +117,25 @@ function refreshPollsPage() {
   });
 }
 
+function formatVoteCountLabel(count) {
+  var total = Number(count) || 0;
+  return total === 1 ? "1 vote" : total + " votes";
+}
+
+function renderMetricBarRow(label, count, widthPercent, metaText) {
+  var html = '<div class="metric-bar-row poll-result-row">';
+  html += '<div class="metric-bar-head">';
+  html += '<span class="metric-bar-label">' + escapeHtml(label) + "</span>";
+  html += '<span class="metric-bar-count">' + count + "</span>";
+  html += "</div>";
+  if (metaText) {
+    html += '<div class="metric-bar-meta">' + escapeHtml(metaText) + "</div>";
+  }
+  html += '<div class="wk-progress-bar"><div class="wk-progress-fill" style="width:' + widthPercent + '%;"></div></div>';
+  html += "</div>";
+  return html;
+}
+
 function renderPollResultsSection(poll, results) {
   if (!results || !results.options) {
     return '<p class="subtitle">Results are not available yet.</p>';
@@ -124,15 +143,10 @@ function renderPollResultsSection(poll, results) {
 
   var html = '<div class="poll-results">';
   results.options.forEach(function (option) {
-    html += '<div class="poll-result-row">';
-    html += '<div class="poll-result-head">';
-    html += '<span>' + escapeHtml(option.option_text) + "</span>";
-    html += '<span>' + option.vote_count + " (" + option.percentage + "%)</span>";
-    html += "</div>";
-    html += '<div class="wk-progress-bar"><div class="wk-progress-fill" style="width:' + option.percentage + '%;"></div></div>';
-    html += "</div>";
+    var meta = formatVoteCountLabel(option.vote_count) + " · " + option.percentage + "%";
+    html += renderMetricBarRow(option.option_text, option.vote_count, option.percentage, meta);
   });
-  html += '<p class="subtitle" style="margin-top:10px;">Total votes: ' + results.total_votes + "</p>";
+  html += '<p class="poll-results-total">Total votes: ' + results.total_votes + "</p>";
   html += "</div>";
   return html;
 }
@@ -149,7 +163,7 @@ function renderPollVoteForm(poll) {
     html += "<span>" + escapeHtml(option.option_text) + "</span>";
     html += "</label>";
   });
-  html += '<button type="submit" class="btn btn-primary btn-sm" style="margin-top:12px;">Submit vote</button>';
+  html += '<button type="submit" class="btn btn-primary poll-submit-btn">Submit vote</button>';
   html += "</form>";
   return html;
 }
@@ -169,6 +183,9 @@ function renderPollCards() {
   pagePollList.forEach(function (poll) {
     var card = document.createElement("article");
     card.className = "card premium-panel poll-card";
+    if (poll.status === "closed" || !poll.is_open) {
+      card.classList.add("poll-card--closed");
+    }
     card.dataset.pollId = String(poll.id);
 
     var statusLabel = getPollStatusLabel(poll.status, poll.is_open);
@@ -211,10 +228,6 @@ function renderPollCards() {
     if (isAdmin) {
       var actions = document.createElement("div");
       actions.className = "poll-admin-actions";
-      actions.style.marginTop = "16px";
-      actions.style.display = "flex";
-      actions.style.gap = "8px";
-      actions.style.flexWrap = "wrap";
 
       var resultsBtn = document.createElement("button");
       resultsBtn.type = "button";

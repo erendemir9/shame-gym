@@ -9,6 +9,7 @@ var DOCUMENTS_DELETE_API_URL = "api/documents/delete.php";
 var DOCUMENTS_DOWNLOAD_API_URL = "api/documents/download.php";
 
 var pageDocumentList = [];
+var documentCategoryOptions = {};
 var editingDocumentId = null;
 var documentSearchTimer = null;
 
@@ -87,6 +88,30 @@ function loadDocumentsFromApi() {
     });
 }
 
+function mergeDocumentCategories(documents) {
+  (documents || []).forEach(function (doc) {
+    if (doc.category) {
+      documentCategoryOptions[doc.category] = true;
+    }
+  });
+}
+
+function loadAllDocumentCategories() {
+  return fetch(DOCUMENTS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseDocumentApiResponse)
+    .then(function (result) {
+      if (result.ok) {
+        mergeDocumentCategories(result.data.documents || []);
+      }
+    })
+    .catch(function () {
+      return null;
+    });
+}
+
 function refreshDocumentsPage() {
   return loadDocumentsFromApi().then(function (result) {
     if (!result.ok) {
@@ -97,6 +122,7 @@ function refreshDocumentsPage() {
     }
 
     pageDocumentList = result.documents;
+    mergeDocumentCategories(pageDocumentList);
     updateDocumentCategoryFilter();
     renderDocumentsTable();
   });
@@ -107,21 +133,16 @@ function updateDocumentCategoryFilter() {
   if (!select) return;
 
   var current = select.value;
-  var categories = {};
-
-  pageDocumentList.forEach(function (doc) {
-    if (doc.category) categories[doc.category] = true;
-  });
 
   select.innerHTML = '<option value="">All categories</option>';
-  Object.keys(categories).sort().forEach(function (category) {
+  Object.keys(documentCategoryOptions).sort().forEach(function (category) {
     var option = document.createElement("option");
     option.value = category;
     option.textContent = category;
     select.appendChild(option);
   });
 
-  if (current && categories[current]) {
+  if (current && documentCategoryOptions[current]) {
     select.value = current;
   }
 }
@@ -140,7 +161,7 @@ function renderDocumentsTable() {
 
   if (!pageDocumentList.length) {
     var emptyRow = document.createElement("tr");
-    emptyRow.innerHTML = '<td colspan="6" style="text-align:center; color:var(--text-muted);">No documents found.</td>';
+    emptyRow.innerHTML = '<td colspan="6" class="empty-state">No documents found.</td>';
     tbody.appendChild(emptyRow);
     return;
   }
@@ -449,5 +470,7 @@ function initDocumentsPage() {
     });
   }
 
-  refreshDocumentsPage();
+  loadAllDocumentCategories().finally(function () {
+    refreshDocumentsPage();
+  });
 }

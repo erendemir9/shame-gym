@@ -200,6 +200,20 @@ function renderSummaryCards(summary) {
   document.getElementById("waMediaCount").textContent = String(summary.media_message_count || 0);
 }
 
+function renderMetricBarRow(label, count, widthPercent, metaText) {
+  var html = '<div class="metric-bar-row">';
+  html += '<div class="metric-bar-head">';
+  html += '<span class="metric-bar-label">' + escapeHtml(label) + "</span>";
+  html += '<span class="metric-bar-count">' + count + "</span>";
+  html += "</div>";
+  if (metaText) {
+    html += '<div class="metric-bar-meta">' + escapeHtml(metaText) + "</div>";
+  }
+  html += '<div class="wk-progress-bar"><div class="wk-progress-fill" style="width:' + widthPercent + '%;"></div></div>';
+  html += "</div>";
+  return html;
+}
+
 function renderParticipantsTable(summary) {
   var host = document.getElementById("waParticipantsTable");
   if (!host) return;
@@ -222,10 +236,8 @@ function renderParticipantsTable(summary) {
   }).forEach(function (name) {
     var count = participants[name];
     var width = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
-    html += '<div class="poll-result-row">';
-    html += '<div class="poll-result-head"><span>' + escapeHtml(name) + '</span><span>' + count + "</span></div>";
-    html += '<div class="wk-progress-bar"><div class="wk-progress-fill" style="width:' + width + '%;"></div></div>';
-    html += "</div>";
+    var meta = count === 1 ? "1 message" : count + " messages";
+    html += renderMetricBarRow(name, count, width, meta);
   });
 
   host.innerHTML = html;
@@ -253,10 +265,9 @@ function renderHourlyActivity(summary) {
   }).forEach(function (hour) {
     var count = hourly[hour];
     var width = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
-    html += '<div class="poll-result-row">';
-    html += '<div class="poll-result-head"><span>' + formatHourLabel(hour) + '</span><span>' + count + "</span></div>";
-    html += '<div class="wk-progress-bar"><div class="wk-progress-fill" style="width:' + width + '%;"></div></div>';
-    html += "</div>";
+    var label = formatHourLabel(hour);
+    var meta = count === 1 ? "1 message" : count + " messages";
+    html += renderMetricBarRow(label, count, width, meta);
   });
 
   host.innerHTML = html;

@@ -151,6 +151,14 @@ body.sidebar-open .sidebar-overlay { display: block; }
               border-color var(--transition-fast);
 }
 
+.card,
+.premium-panel,
+.poll-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .card:hover,
 .stat-card:hover {
   border-color: rgba(var(--primary-rgb), 0.2);
@@ -256,7 +264,8 @@ body.sidebar-open .sidebar-overlay { display: block; }
 /* ---------- Tables ---------- */
 .table-wrap {
   border-radius: var(--radius-lg);
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 thead th {
   position: sticky;
@@ -486,7 +495,8 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
-  .table-wrap {
+  .table-wrap,
+  .table-wrap--scroll {
     overflow-x: auto;
   }
 

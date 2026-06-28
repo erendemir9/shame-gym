@@ -49,7 +49,7 @@
             <span class="field-hint">CSV only, max 5 MB. Sample: <code>sample_data/legacy_members_4000_sample.csv</code></span>
             <span class="field-error" id="legacyCsvFileError"></span>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="legacy-import-actions">
             <button type="button" class="btn btn-ghost" id="legacyPreviewBtn">Preview import</button>
             <button type="button" class="btn btn-primary" id="legacyRunBtn">Run import</button>
           </div>
@@ -89,7 +89,7 @@
         </div>
 
         <h3 class="section-heading" style="font-size:1rem;">Cleaned sample rows</h3>
-        <div class="table-wrap" style="margin-bottom:16px;">
+        <div class="table-wrap table-wrap--scroll" style="margin-bottom:16px;">
           <table>
             <thead>
               <tr>
@@ -107,7 +107,7 @@
         </div>
 
         <h3 class="section-heading" style="font-size:1rem;">Error preview</h3>
-        <div class="table-wrap">
+        <div class="table-wrap table-wrap--scroll">
           <table>
             <thead>
               <tr>
@@ -145,7 +145,7 @@
       <section class="card premium-panel">
         <h2 class="section-heading">Import error log</h2>
         <p class="subtitle section-lead" id="legacyErrorsLead">Recent rejected rows from imports.</p>
-        <div class="table-wrap">
+        <div class="table-wrap table-wrap--scroll">
           <table>
             <thead>
               <tr>

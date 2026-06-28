@@ -112,7 +112,7 @@ function renderLegacyPreview(data) {
     tr.innerHTML =
       "<td>" + row.row_number + "</td>" +
       "<td>" + escapeHtml(row.error_message) + "</td>" +
-      "<td><code>" + escapeHtml(row.raw_data || "") + "</code></td>";
+      "<td class=\"table-cell-raw\"><code>" + escapeHtml(row.raw_data || "") + "</code></td>";
     errorBody.appendChild(tr);
   });
 
@@ -178,7 +178,7 @@ function renderLegacyErrors(errors, batchId) {
       "<td>" + row.batch_id + "</td>" +
       "<td>" + row.row_number + "</td>" +
       "<td>" + escapeHtml(row.error_message) + "</td>" +
-      "<td><code>" + escapeHtml(row.raw_data || "") + "</code></td>" +
+      "<td class=\"table-cell-raw\"><code>" + escapeHtml(row.raw_data || "") + "</code></td>" +
       "<td>" + escapeHtml(row.created_at) + "</td>";
     body.appendChild(tr);
   });
