@@ -8,9 +8,12 @@ var MEMBERS_API_URL = "api/members/list.php";
 var MEMBERS_CREATE_API_URL = "api/members/create.php";
 var MEMBERS_UPDATE_API_URL = "api/members/update.php";
 var MEMBERS_DELETE_API_URL = "api/members/delete.php";
+var WORKOUTS_LIST_API_URL = "api/workouts/list.php";
 
 // Members currently shown on the page (null until first load finishes).
 var pageMemberList = null;
+var pageWorkoutSummaryByEmail = null;
+var workoutSummariesApiAvailable = false;
 
 // ---------- API READ HELPERS ----------
 
@@ -124,22 +127,116 @@ function loadMembersFromApi() {
     });
 }
 
-function loadMembersWithFallback() {
-  return loadMembersFromApi().then(function (result) {
+function mapWorkoutPlansToSummaries(apiPlans) {
+  var summaries = {};
+
+  apiPlans.forEach(function (plan) {
+    var email = normalizeMemberEmail(plan.member_email || plan.memberEmail || "");
+    if (!email || summaries[email]) return;
+
+    summaries[email] = {
+      planName: plan.plan_name || plan.planName || "None",
+      completed: (plan.completed_days || []).length,
+      total: (plan.days || []).length
+    };
+  });
+
+  return summaries;
+}
+
+function loadWorkoutSummariesFromApi() {
+  return fetch(WORKOUTS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load workout summaries."
+          };
+        }
+
+        var apiPlans = data.data && data.data.workout_plans ? data.data.workout_plans : [];
+        return {
+          ok: true,
+          summaries: mapWorkoutPlansToSummaries(apiPlans)
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadWorkoutSummariesWithFallback() {
+  return loadWorkoutSummariesFromApi().then(function (result) {
     if (result.ok) {
-      pageMemberList = result.members;
-      renderMembers();
+      pageWorkoutSummaryByEmail = result.summaries;
+      workoutSummariesApiAvailable = true;
       return;
     }
 
-    console.warn("Members API unavailable:", result.message);
-    pageMemberList = getMembers();
+    console.warn("Workout summary API unavailable:", result.message);
+    pageWorkoutSummaryByEmail = null;
+    workoutSummariesApiAvailable = false;
+  });
+}
 
-    if (typeof showToast === "function") {
-      showToast("Could not load members from server. Showing saved local data.", "info");
+function getMemberWorkoutSummaryForPage(email) {
+  var key = normalizeMemberEmail(email);
+
+  if (workoutSummariesApiAvailable && pageWorkoutSummaryByEmail) {
+    if (pageWorkoutSummaryByEmail[key]) {
+      return pageWorkoutSummaryByEmail[key];
     }
+    return { planName: "None", completed: 0, total: 0 };
+  }
 
-    renderMembers();
+  if (typeof getMemberWorkoutSummary === "function") {
+    return getMemberWorkoutSummary(email);
+  }
+
+  return { planName: "None", completed: 0, total: 0 };
+}
+
+function loadMembersWithFallback() {
+  var summaryPromise = isTrainerView()
+    ? loadWorkoutSummariesWithFallback()
+    : Promise.resolve();
+
+  return summaryPromise.then(function () {
+    return loadMembersFromApi().then(function (result) {
+      if (result.ok) {
+        pageMemberList = result.members;
+        renderMembers();
+        return;
+      }
+
+      console.warn("Members API unavailable:", result.message);
+      pageMemberList = getMembers();
+
+      if (typeof showToast === "function") {
+        showToast("Could not load members from server. Showing saved local data.", "info");
+      }
+
+      renderMembers();
+    });
   });
 }
 
@@ -509,9 +606,7 @@ function renderMemberRow(member) {
   tr.appendChild(textCell(member.email));
 
   if (isTrainerView()) {
-    var summary = typeof getMemberWorkoutSummary === "function"
-      ? getMemberWorkoutSummary(member.email)
-      : { planName: "None", completed: 0, total: 0 };
+    var summary = getMemberWorkoutSummaryForPage(member.email);
 
     tr.appendChild(textCell(summary.planName));
     tr.appendChild(textCell(summary.total ? summary.completed + " / " + summary.total + " days" : "—"));

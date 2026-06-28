@@ -7,9 +7,12 @@ var MEETINGS_LIST_API_URL = "api/meetings/list.php";
 var MEETINGS_CREATE_API_URL = "api/meetings/create.php";
 var MEETINGS_UPDATE_API_URL = "api/meetings/update.php";
 var MEETINGS_DELETE_API_URL = "api/meetings/delete.php";
+var USERS_LIST_API_URL = "api/users/list.php";
 
 var pageMeetingList = null;
 var meetingsApiAvailable = false;
+var pageStaffAttendeeOptions = null;
+var staffAttendeesApiAvailable = false;
 
 var editingMeetingId = null;
 
@@ -225,7 +228,58 @@ function textCell(text) {
   return td;
 }
 
-function getStaffAttendeeOptions() {
+function mapApiUserToAttendeeOption(user) {
+  var email = user.email.trim();
+  var displayName = user.display_name || user.full_name || email;
+
+  return {
+    userId: user.id,
+    email: email,
+    label: displayName + " (" + email + ")"
+  };
+}
+
+function loadMeetingAttendeesFromApi() {
+  return fetch(USERS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseMeetingApiResponse)
+    .then(function (result) {
+      if (!result.ok) return result;
+
+      var apiUsers = result.data.users || [];
+      var options = apiUsers.map(mapApiUserToAttendeeOption);
+
+      return {
+        ok: true,
+        options: options
+      };
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadMeetingAttendeesWithFallback() {
+  return loadMeetingAttendeesFromApi().then(function (result) {
+    if (result.ok) {
+      pageStaffAttendeeOptions = result.options;
+      staffAttendeesApiAvailable = true;
+      return true;
+    }
+
+    console.warn("Meeting attendee users API unavailable:", result.message);
+    pageStaffAttendeeOptions = null;
+    staffAttendeesApiAvailable = false;
+    return false;
+  });
+}
+
+function getStaffAttendeeOptionsFromLocalStorage() {
   var options = [];
   var seen = {};
 
@@ -247,6 +301,14 @@ function getStaffAttendeeOptions() {
   });
 
   return options;
+}
+
+function getStaffAttendeeOptions() {
+  if (pageStaffAttendeeOptions !== null) {
+    return pageStaffAttendeeOptions;
+  }
+
+  return getStaffAttendeeOptionsFromLocalStorage();
 }
 
 function populateAttendeeCheckboxes(selected) {
@@ -380,26 +442,38 @@ function getUpcomingMeetings(limit) {
     .slice(0, limit || 3);
 }
 
-function openMeetingModal() {
-  editingMeetingId = null;
-  document.getElementById("meetingModalTitle").textContent = "Schedule meeting";
-  document.getElementById("meetingForm").reset();
-  clearAllMeetingErrors();
-  populateAttendeeCheckboxes([]);
+function openMeetingModalWithAttendees(meeting) {
+  if (meeting) {
+    editingMeetingId = meeting.id;
+    document.getElementById("meetingModalTitle").textContent = "Edit meeting";
+    document.getElementById("mtTitle").value = meeting.title;
+    document.getElementById("mtDate").value = meeting.date;
+    document.getElementById("mtTime").value = meeting.time;
+    document.getElementById("mtLocation").value = meeting.location;
+    document.getElementById("mtNotes").value = meeting.notes || "";
+    clearAllMeetingErrors();
+    populateAttendeeCheckboxes(meeting.attendees || []);
+  } else {
+    editingMeetingId = null;
+    document.getElementById("meetingModalTitle").textContent = "Schedule meeting";
+    document.getElementById("meetingForm").reset();
+    clearAllMeetingErrors();
+    populateAttendeeCheckboxes([]);
+  }
+
   document.getElementById("meetingModal").classList.add("open");
 }
 
+function openMeetingModal() {
+  loadMeetingAttendeesWithFallback().then(function () {
+    openMeetingModalWithAttendees(null);
+  });
+}
+
 function openMeetingModalForEdit(meeting) {
-  editingMeetingId = meeting.id;
-  document.getElementById("meetingModalTitle").textContent = "Edit meeting";
-  document.getElementById("mtTitle").value = meeting.title;
-  document.getElementById("mtDate").value = meeting.date;
-  document.getElementById("mtTime").value = meeting.time;
-  document.getElementById("mtLocation").value = meeting.location;
-  document.getElementById("mtNotes").value = meeting.notes || "";
-  clearAllMeetingErrors();
-  populateAttendeeCheckboxes(meeting.attendees || []);
-  document.getElementById("meetingModal").classList.add("open");
+  loadMeetingAttendeesWithFallback().then(function () {
+    openMeetingModalWithAttendees(meeting);
+  });
 }
 
 function closeMeetingModal() {
@@ -530,7 +604,10 @@ function initMeetingPageUi() {
 }
 
 function initMeetingPage() {
-  loadMeetingsWithFallback().then(function () {
+  Promise.all([
+    loadMeetingsWithFallback(),
+    loadMeetingAttendeesWithFallback()
+  ]).then(function () {
     initMeetingPageUi();
     renderMeetings();
   });
