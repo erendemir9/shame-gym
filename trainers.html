@@ -9,12 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 
   <!-- GUARDS: need a session, and the role must be allowed to see Trainers. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("trainers");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -39,7 +42,7 @@
       </div>
 
       <!-- Cards are filled by renderTrainers() from localStorage. -->
-      <div class="cards-grid" id="trainersGrid"></div>
+      <div class="cards-grid reveal-group" id="trainersGrid"></div>
     </main>
   </div>
 
@@ -106,11 +109,12 @@
   <script src="js/data.js"></script>
   <script src="js/phone.js"></script>
   <script src="js/toast.js"></script>
-  <script src="js/trainers.js"></script>
+  <script src="js/trainers.js?v=20260628"></script>
   <script>
     mountSidebar("trainers"); // sidebar adapts to the role
     initTrainerPage();        // wire (admin) or strip (read-only) management UI
-    renderTrainers();         // draw the cards on load
+    loadTrainersWithFallback(); // load from PHP API, fallback to localStorage
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>

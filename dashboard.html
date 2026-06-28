@@ -9,12 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 
   <!-- GUARDS: must have a session; dashboard is allowed for every role. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("dashboard");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
 
     <!-- SHARED SIDEBAR. Nav links are rendered by mountSidebar() based on role. -->
@@ -45,7 +48,7 @@
 
       <!-- ADMIN / TRAINER VIEW: live stats + quick links. -->
       <div id="staffView" style="display:none;">
-        <div class="stats-grid">
+        <div class="stats-grid reveal-group">
           <div class="stat-card">
             <div class="stat-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -69,15 +72,15 @@
           </div>
         </div>
 
-        <section class="card">
-          <h2 style="font-size:24px;margin-bottom:8px;">Quick links</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Jump straight to your areas.</p>
+        <section class="card premium-panel">
+          <h2 class="section-heading">Quick links</h2>
+          <p class="subtitle section-lead">Jump straight to your areas.</p>
           <div id="quickLinks" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
         </section>
 
-        <section class="card" id="adminMeetingsSection" style="display:none; margin-top:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Upcoming staff meetings</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Internal coordination for the coaching team.</p>
+        <section class="card premium-panel" id="adminMeetingsSection" style="display:none;">
+          <h2 class="section-heading">Upcoming staff meetings</h2>
+          <p class="subtitle section-lead">Internal coordination for the coaching team.</p>
           <div id="adminMeetingsList"></div>
           <a class="btn btn-ghost" href="meetings.html" style="margin-top:12px;">Manage all meetings</a>
         </section>
@@ -85,9 +88,10 @@
 
       <!-- MEMBER VIEW: simpler welcome panel pointing to the timetable. -->
       <div id="memberView" style="display:none;">
-        <section class="card" style="margin-bottom:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Your membership</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Your account and membership details.</p>
+        <div class="dashboard-stack">
+        <section class="card premium-panel">
+          <h2 class="section-heading">Your membership</h2>
+          <p class="subtitle section-lead">Your account and membership details.</p>
           <div id="membershipBadges" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
             <span class="badge badge-silver">Loading…</span>
           </div>
@@ -96,144 +100,40 @@
           </div>
         </section>
 
-        <section class="card" style="margin-bottom:24px;">
-          <h2 style="font-size:24px;margin-bottom:8px;">Upcoming classes</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Classes you are enrolled in.</p>
+        <section class="card premium-panel">
+          <h2 class="section-heading">Upcoming classes</h2>
+          <p class="subtitle section-lead">Classes you are enrolled in.</p>
           <div id="enrolledClassesList"></div>
           <div class="card-actions">
             <a class="btn btn-primary" href="schedules.html">Browse class schedule</a>
           </div>
         </section>
 
-        <!-- MY WORKOUT PROGRAM. Filled by renderWorkoutProgram() from workouts.js:
-             the active plan with daily exercises, or a "no active plan" state. -->
-        <section class="card">
-          <h2 style="font-size:24px;margin-bottom:8px;">My Workout Program</h2>
-          <p class="subtitle" style="margin-bottom:16px;">Follow your trainer's plan during your gym session.</p>
+        <!-- MY WORKOUT PROGRAM. Filled by dashboard API preview or workouts.js fallback. -->
+        <section class="card premium-panel">
+          <h2 class="section-heading">My Workout Program</h2>
+          <p class="subtitle section-lead">Follow your trainer's plan during your gym session.</p>
           <div id="workoutContent"></div>
           <div class="card-actions wk-dashboard-footer">
             <a class="btn btn-ghost" href="workouts.html">Open full workout page</a>
           </div>
         </section>
+        </div>
       </div>
     </main>
   </div>
 
   <script src="js/data.js"></script>
-  <script src="js/enrollments.js"></script>
+  <script src="js/enrollments.js?v=20260628"></script>
   <script src="js/toast.js"></script>
   <script src="js/workouts.js"></script>
   <script src="js/meetings.js"></script>
-  <script src="js/schedules.js"></script>
+  <script src="js/schedules.js?v=20260628"></script>
+  <script src="js/dashboard.js?v=20260628"></script>
   <script>
-    var session = getSession();
-
-    // Build the sidebar (nav links + user pill) for this role.
     mountSidebar("dashboard");
-
-    // Personalise the greeting and show the role pill in the header.
-    document.getElementById("welcomeTitle").textContent = "Welcome back, " + session.name;
-    var headerBadge = document.getElementById("headerRoleBadge");
-    headerBadge.className = "badge " + getRoleBadgeClass(session.role);
-    headerBadge.textContent = getRoleLabel(session.role);
-
-    // If we were redirected here by the access guard, explain why.
-    if (sessionStorage.getItem("shame_access_denied")) {
-      sessionStorage.removeItem("shame_access_denied");
-      showToast("You don't have access to that page", "error");
-    }
-
-    // Animate a number from 0 up to target over ~800ms (skipped if the user
-    // prefers reduced motion).
-    function countUp(el, target) {
-      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reduce) { el.textContent = target; return; }
-
-      var duration = 800;
-      var startTime = null;
-      function step(now) {
-        if (startTime === null) startTime = now;
-        var progress = Math.min((now - startTime) / duration, 1);
-        el.textContent = Math.floor(progress * target);
-        if (progress < 1) requestAnimationFrame(step);
-        else el.textContent = target; // land exactly on the target
-      }
-      requestAnimationFrame(step);
-    }
-
-    // Show the right view for the role. Members get the simple panel;
-    // admin and trainer get the live stat cards.
-    if (session.role === "member") {
-      document.getElementById("memberView").style.display = "block";
-
-      var user = findUserByEmail(session.email);
-      var member = findMemberForUser(user || session);
-      var badgeWrap = document.getElementById("membershipBadges");
-      badgeWrap.innerHTML = "";
-
-      if (member) {
-        var typeBadge = document.createElement("span");
-        var typeClass = member.type === "VIP" ? "badge-purple" : (member.type === "Premium" ? "badge-blue" : "badge-silver");
-        typeBadge.className = "badge " + typeClass;
-        typeBadge.textContent = member.type + " plan";
-        badgeWrap.appendChild(typeBadge);
-      } else {
-        var unknownBadge = document.createElement("span");
-        unknownBadge.className = "badge badge-silver";
-        unknownBadge.textContent = "Member account";
-        badgeWrap.appendChild(unknownBadge);
-      }
-
-      var statusBadge = document.createElement("span");
-      var accountStatus = getAccountStatus(session.email);
-      if (accountStatus === "active") {
-        statusBadge.className = "badge badge-green";
-        statusBadge.textContent = "Status: Active";
-      } else {
-        statusBadge.className = "badge badge-amber";
-        statusBadge.textContent = "Status: Pending";
-      }
-      badgeWrap.appendChild(statusBadge);
-
-      renderWorkoutProgram();
-      renderEnrolledClassesList("enrolledClassesList");
-    } else {
-      document.getElementById("staffView").style.display = "block";
-
-      countUp(document.getElementById("statMembers"), getMembers().length);
-      countUp(document.getElementById("statTrainers"), getTrainers().length);
-      countUp(document.getElementById("statClasses"), getSchedules().length);
-
-      var quick = document.getElementById("quickLinks");
-      getVisibleNavLinks(session.role).forEach(function (link) {
-        if (link.key === "dashboard") return;
-        var a = document.createElement("a");
-        a.className = "btn btn-ghost";
-        a.href = link.href;
-        a.textContent = "Open " + link.label;
-        quick.appendChild(a);
-      });
-
-      if (session.role === "admin" && typeof getUpcomingMeetings === "function") {
-        var meetingsSection = document.getElementById("adminMeetingsSection");
-        var meetingsList = document.getElementById("adminMeetingsList");
-        var upcoming = getUpcomingMeetings(3);
-        meetingsSection.style.display = "block";
-
-        if (upcoming.length === 0) {
-          meetingsList.innerHTML = '<p class="subtitle">No upcoming staff meetings scheduled.</p>';
-        } else {
-          var ul = document.createElement("ul");
-          ul.className = "simple-list";
-          upcoming.forEach(function (meeting) {
-            var li = document.createElement("li");
-            li.textContent = meeting.title + " — " + meeting.date + " at " + meeting.time + " (" + meeting.location + ")";
-            ul.appendChild(li);
-          });
-          meetingsList.appendChild(ul);
-        }
-      }
-    }
+    initDashboardPage();
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>

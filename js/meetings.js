@@ -1,8 +1,207 @@
 /* ============================================================
    meetings.js — admin staff meeting scheduling.
+   Loads from api/meetings/list.php with localStorage fallback.
    ============================================================ */
 
+var MEETINGS_LIST_API_URL = "api/meetings/list.php";
+var MEETINGS_CREATE_API_URL = "api/meetings/create.php";
+var MEETINGS_UPDATE_API_URL = "api/meetings/update.php";
+var MEETINGS_DELETE_API_URL = "api/meetings/delete.php";
+var USERS_LIST_API_URL = "api/users/list.php";
+
+var pageMeetingList = null;
+var meetingsApiAvailable = false;
+var pageStaffAttendeeOptions = null;
+var staffAttendeesApiAvailable = false;
+
 var editingMeetingId = null;
+
+function parseMeetingApiResponse(response) {
+  return response.text().then(function (text) {
+    var data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      return {
+        ok: false,
+        message: "Invalid server response."
+      };
+    }
+
+    if (!response.ok || !data.success) {
+      return {
+        ok: false,
+        message: data.message || "Request failed."
+      };
+    }
+
+    return {
+      ok: true,
+      data: data.data || {},
+      message: data.message || "Success"
+    };
+  });
+}
+
+function mapApiMeetingToFrontend(apiMeeting) {
+  return {
+    id: apiMeeting.frontend_id || ("mt" + apiMeeting.id),
+    apiId: apiMeeting.id,
+    title: apiMeeting.title,
+    date: apiMeeting.date || apiMeeting.meeting_date,
+    time: apiMeeting.time || apiMeeting.meeting_time,
+    location: apiMeeting.location || "",
+    notes: apiMeeting.notes || "",
+    attendees: apiMeeting.attendees || []
+  };
+}
+
+function getMeetingsForPage() {
+  if (pageMeetingList !== null) return pageMeetingList;
+  return getMeetings();
+}
+
+function loadMeetingsFromApi() {
+  return fetch(MEETINGS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseMeetingApiResponse)
+    .then(function (result) {
+      if (!result.ok) return result;
+
+      var apiMeetings = result.data.meetings || [];
+      return {
+        ok: true,
+        meetings: apiMeetings.map(mapApiMeetingToFrontend)
+      };
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadMeetingsWithFallback() {
+  return loadMeetingsFromApi().then(function (result) {
+    if (result.ok) {
+      pageMeetingList = result.meetings;
+      meetingsApiAvailable = true;
+      return true;
+    }
+
+    console.warn("Meetings API unavailable:", result.message);
+    pageMeetingList = null;
+    meetingsApiAvailable = false;
+
+    if (typeof showToast === "function") {
+      showToast("Could not load meetings from server. Showing saved local data.", "info");
+    }
+
+    return false;
+  });
+}
+
+function createMeetingWithApi(meetingData) {
+  return fetch(MEETINGS_CREATE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: meetingData.title,
+      meeting_date: meetingData.date,
+      meeting_time: meetingData.time,
+      location: meetingData.location,
+      notes: meetingData.notes,
+      attendee_emails: meetingData.attendees
+    })
+  })
+    .then(parseMeetingApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function updateMeetingWithApi(meetingData) {
+  return fetch(MEETINGS_UPDATE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: meetingData.apiId || meetingData.id,
+      title: meetingData.title,
+      meeting_date: meetingData.date,
+      meeting_time: meetingData.time,
+      location: meetingData.location,
+      notes: meetingData.notes,
+      attendee_emails: meetingData.attendees
+    })
+  })
+    .then(parseMeetingApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function deleteMeetingWithApi(meeting) {
+  return fetch(MEETINGS_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: meeting.apiId || meeting.id
+    })
+  })
+    .then(parseMeetingApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function saveMeetingLocally(meetingData, isEdit) {
+  var meetings = getMeetings();
+  var replaced = false;
+
+  for (var i = 0; i < meetings.length; i++) {
+    if (meetings[i].id === meetingData.id) {
+      meetings[i] = meetingData;
+      replaced = true;
+      break;
+    }
+  }
+
+  if (!replaced) meetings.push(meetingData);
+  saveMeetings(meetings);
+}
+
+function saveMeetingWithApi(meetingData, isEdit) {
+  var apiCall = isEdit ? updateMeetingWithApi(meetingData) : createMeetingWithApi(meetingData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return loadMeetingsWithFallback().then(function () {
+        return { ok: true, usedFallback: false };
+      });
+    }
+
+    if (result.message === "Network error.") {
+      return {
+        ok: false,
+        usedFallback: true,
+        message: "Server unavailable. Meeting saved locally only."
+      };
+    }
+
+    return {
+      ok: false,
+      usedFallback: false,
+      message: result.message || "Could not save meeting."
+    };
+  });
+}
 
 function showFieldError(input, errorEl, message) {
   errorEl.textContent = message;
@@ -29,7 +228,58 @@ function textCell(text) {
   return td;
 }
 
-function getStaffAttendeeOptions() {
+function mapApiUserToAttendeeOption(user) {
+  var email = user.email.trim();
+  var displayName = user.display_name || user.full_name || email;
+
+  return {
+    userId: user.id,
+    email: email,
+    label: displayName + " (" + email + ")"
+  };
+}
+
+function loadMeetingAttendeesFromApi() {
+  return fetch(USERS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseMeetingApiResponse)
+    .then(function (result) {
+      if (!result.ok) return result;
+
+      var apiUsers = result.data.users || [];
+      var options = apiUsers.map(mapApiUserToAttendeeOption);
+
+      return {
+        ok: true,
+        options: options
+      };
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadMeetingAttendeesWithFallback() {
+  return loadMeetingAttendeesFromApi().then(function (result) {
+    if (result.ok) {
+      pageStaffAttendeeOptions = result.options;
+      staffAttendeesApiAvailable = true;
+      return true;
+    }
+
+    console.warn("Meeting attendee users API unavailable:", result.message);
+    pageStaffAttendeeOptions = null;
+    staffAttendeesApiAvailable = false;
+    return false;
+  });
+}
+
+function getStaffAttendeeOptionsFromLocalStorage() {
   var options = [];
   var seen = {};
 
@@ -51,6 +301,14 @@ function getStaffAttendeeOptions() {
   });
 
   return options;
+}
+
+function getStaffAttendeeOptions() {
+  if (pageStaffAttendeeOptions !== null) {
+    return pageStaffAttendeeOptions;
+  }
+
+  return getStaffAttendeeOptionsFromLocalStorage();
 }
 
 function populateAttendeeCheckboxes(selected) {
@@ -101,6 +359,28 @@ function renderMeetingRow(meeting) {
     deleteBtn.className = "btn btn-ghost btn-sm";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", function () {
+      if (meetingsApiAvailable) {
+        deleteMeetingWithApi(meeting).then(function (result) {
+          if (result.ok) {
+            return loadMeetingsWithFallback().then(function () {
+              renderMeetings();
+              showToast("Meeting deleted", "info");
+            });
+          }
+
+          if (result.message === "Network error.") {
+            var list = getMeetings().filter(function (m) { return m.id !== meeting.id; });
+            saveMeetings(list);
+            renderMeetings();
+            showToast("Server unavailable. Meeting saved locally only.", "info");
+            return;
+          }
+
+          showToast(result.message || "Could not delete meeting.", "error");
+        });
+        return;
+      }
+
       var list = getMeetings().filter(function (m) { return m.id !== meeting.id; });
       saveMeetings(list);
       renderMeetings();
@@ -120,7 +400,7 @@ function renderMeetings() {
   if (!body) return;
   body.innerHTML = "";
 
-  var meetings = getMeetings().slice().sort(function (a, b) {
+  var meetings = getMeetingsForPage().slice().sort(function (a, b) {
     return (a.date + a.time).localeCompare(b.date + b.time);
   });
 
@@ -156,32 +436,44 @@ function renderMeetings() {
 
 function getUpcomingMeetings(limit) {
   var today = new Date().toISOString().slice(0, 10);
-  return getMeetings()
+  return getMeetingsForPage()
     .filter(function (m) { return m.date >= today; })
     .sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); })
     .slice(0, limit || 3);
 }
 
-function openMeetingModal() {
-  editingMeetingId = null;
-  document.getElementById("meetingModalTitle").textContent = "Schedule meeting";
-  document.getElementById("meetingForm").reset();
-  clearAllMeetingErrors();
-  populateAttendeeCheckboxes([]);
+function openMeetingModalWithAttendees(meeting) {
+  if (meeting) {
+    editingMeetingId = meeting.id;
+    document.getElementById("meetingModalTitle").textContent = "Edit meeting";
+    document.getElementById("mtTitle").value = meeting.title;
+    document.getElementById("mtDate").value = meeting.date;
+    document.getElementById("mtTime").value = meeting.time;
+    document.getElementById("mtLocation").value = meeting.location;
+    document.getElementById("mtNotes").value = meeting.notes || "";
+    clearAllMeetingErrors();
+    populateAttendeeCheckboxes(meeting.attendees || []);
+  } else {
+    editingMeetingId = null;
+    document.getElementById("meetingModalTitle").textContent = "Schedule meeting";
+    document.getElementById("meetingForm").reset();
+    clearAllMeetingErrors();
+    populateAttendeeCheckboxes([]);
+  }
+
   document.getElementById("meetingModal").classList.add("open");
 }
 
+function openMeetingModal() {
+  loadMeetingAttendeesWithFallback().then(function () {
+    openMeetingModalWithAttendees(null);
+  });
+}
+
 function openMeetingModalForEdit(meeting) {
-  editingMeetingId = meeting.id;
-  document.getElementById("meetingModalTitle").textContent = "Edit meeting";
-  document.getElementById("mtTitle").value = meeting.title;
-  document.getElementById("mtDate").value = meeting.date;
-  document.getElementById("mtTime").value = meeting.time;
-  document.getElementById("mtLocation").value = meeting.location;
-  document.getElementById("mtNotes").value = meeting.notes || "";
-  clearAllMeetingErrors();
-  populateAttendeeCheckboxes(meeting.attendees || []);
-  document.getElementById("meetingModal").classList.add("open");
+  loadMeetingAttendeesWithFallback().then(function () {
+    openMeetingModalWithAttendees(meeting);
+  });
 }
 
 function closeMeetingModal() {
@@ -245,8 +537,13 @@ function saveMeeting() {
   var attendees = validateMeetingForm();
   if (!attendees) return;
 
+  var existingMeeting = editingMeetingId
+    ? getMeetingsForPage().filter(function (m) { return m.id === editingMeetingId; })[0]
+    : null;
+
   var data = {
     id: editingMeetingId || generateId(),
+    apiId: existingMeeting ? existingMeeting.apiId : null,
     title: document.getElementById("mtTitle").value.trim(),
     date: document.getElementById("mtDate").value,
     time: document.getElementById("mtTime").value,
@@ -255,24 +552,37 @@ function saveMeeting() {
     attendees: attendees
   };
 
-  var meetings = getMeetings();
-  var replaced = false;
-  for (var i = 0; i < meetings.length; i++) {
-    if (meetings[i].id === data.id) {
-      meetings[i] = data;
-      replaced = true;
-      break;
-    }
-  }
-  if (!replaced) meetings.push(data);
+  var isEdit = !!editingMeetingId;
 
-  saveMeetings(meetings);
+  if (meetingsApiAvailable) {
+    saveMeetingWithApi(data, isEdit).then(function (result) {
+      if (result.ok) {
+        closeMeetingModal();
+        renderMeetings();
+        showToast(isEdit ? "Meeting updated" : "Meeting scheduled", "success");
+        return;
+      }
+
+      if (result.usedFallback) {
+        saveMeetingLocally(data, isEdit);
+        closeMeetingModal();
+        renderMeetings();
+        showToast("Server unavailable. Meeting saved locally only.", "info");
+        return;
+      }
+
+      showToast(result.message || "Could not save meeting.", "error");
+    });
+    return;
+  }
+
+  saveMeetingLocally(data, isEdit);
   closeMeetingModal();
   renderMeetings();
-  showToast(editingMeetingId ? "Meeting updated" : "Meeting scheduled", "success");
+  showToast(isEdit ? "Meeting updated" : "Meeting scheduled", "success");
 }
 
-function initMeetingPage() {
+function initMeetingPageUi() {
   if (!canManageMeetings()) {
     var addBtn = document.getElementById("addMeetingBtn");
     if (addBtn) addBtn.remove();
@@ -290,5 +600,15 @@ function initMeetingPage() {
   });
   document.getElementById("meetingModal").addEventListener("click", function (event) {
     if (event.target === this) closeMeetingModal();
+  });
+}
+
+function initMeetingPage() {
+  Promise.all([
+    loadMeetingsWithFallback(),
+    loadMeetingAttendeesWithFallback()
+  ]).then(function () {
+    initMeetingPageUi();
+    renderMeetings();
   });
 }

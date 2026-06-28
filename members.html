@@ -9,12 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 
   <!-- GUARDS: need a session, and the role must be allowed to see Members. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("members");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -121,11 +124,17 @@
   <script src="js/phone.js"></script>
   <script src="js/toast.js"></script>
   <script src="js/workouts.js"></script>
-  <script src="js/members.js"></script>
+  <script src="js/members.js?v=20260628"></script>
   <script>
     mountSidebar("members"); // sidebar adapts to the role
     initMemberPage();        // wire (admin) or strip (read-only) management UI
-    renderMembers();         // draw the table on load
+    if (typeof loadMembersWithFallback === "function") {
+      loadMembersWithFallback();
+    } else {
+      console.warn("API member loader is not available. Falling back to renderMembers().");
+      renderMembers();
+    }
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>

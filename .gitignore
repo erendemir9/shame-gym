@@ -1,3 +1,16 @@
 .claude/
 .DS_Store
 .cursor/
+
+# Runtime uploaded files
+uploads/documents/*
+!uploads/documents/.gitkeep
+!uploads/documents/doc_001_member_handbook.pdf
+!uploads/documents/doc_002_trainer_safety.pdf
+!uploads/documents/doc_003_finance_template.xlsx
+
+uploads/whatsapp/*
+!uploads/whatsapp/.gitkeep
+
+uploads/import/*
+!uploads/import/.gitkeep

@@ -1,8 +1,9 @@
 /* ============================================================
-   auth.js — simulated authentication + role-based access (no backend).
-   Handles: user accounts in localStorage, login check, session,
-   account activation (first-time password setup), logout, route guard,
-   and ONE central permissions map.
+   auth.js — authentication + role-based access.
+   Login, logout, activation, and session validation use PHP
+   (api/auth/*). A localStorage session cache mirrors the server
+   user for page guards; shame_users seed data is kept for
+   emergency fallback and legacy sync helpers only.
    ============================================================ */
 
 var USERS_KEY = "shame_users";
@@ -32,32 +33,38 @@ var PERMISSIONS = {
   admin: {
     label: "Administrator",
     badgeClass: "badge-blue",
-    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings"],
+    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance", "polls", "whatsapp", "legacy-import"],
     manageMembers: true,
     manageTrainers: true,
     manageSchedules: true,
     manageWorkouts: true,
-    manageMeetings: true
+    manageMeetings: true,
+    manageDocuments: true,
+    manageFinance: true
   },
   trainer: {
     label: "Trainer",
     badgeClass: "badge-silver",
-    nav: ["dashboard", "members", "schedules", "workouts"],
+    nav: ["dashboard", "members", "schedules", "workouts", "documents", "polls"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
     manageWorkouts: true,
-    manageMeetings: false
+    manageMeetings: false,
+    manageDocuments: false,
+    manageFinance: false
   },
   member: {
     label: "Member",
     badgeClass: "badge-purple",
-    nav: ["dashboard", "schedules", "workouts", "profile"],
+    nav: ["dashboard", "schedules", "workouts", "documents", "polls", "profile"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
     manageWorkouts: false,
-    manageMeetings: false
+    manageMeetings: false,
+    manageDocuments: false,
+    manageFinance: false
   }
 };
 
@@ -68,8 +75,202 @@ var NAV_LINKS = [
   { key: "schedules", label: "Schedules", href: "schedules.html" },
   { key: "workouts",  label: "Workouts",  href: "workouts.html" },
   { key: "meetings",  label: "Meetings",  href: "meetings.html" },
+  { key: "documents", label: "Documents", href: "documents.html" },
+  { key: "finance",   label: "Finance",   href: "finance.html" },
+  { key: "polls",     label: "Polls",     href: "polls.html" },
+  { key: "whatsapp",  label: "WhatsApp",  href: "whatsapp.html" },
+  { key: "legacy-import", label: "Legacy Import", href: "legacy-import.html" },
   { key: "profile",   label: "My Profile", href: "profile.html" }
 ];
+
+var AUTH_API_BASE = "api/auth/";
+
+// ---------- PHP AUTH API HELPERS ----------
+
+function authApiRequest(path, options) {
+  var requestOptions = options || {};
+  requestOptions.credentials = "same-origin";
+
+  if (requestOptions.body && typeof requestOptions.body === "object") {
+    requestOptions.headers = requestOptions.headers || {};
+    requestOptions.headers["Content-Type"] = "application/json";
+    requestOptions.body = JSON.stringify(requestOptions.body);
+  }
+
+  return fetch(AUTH_API_BASE + path, requestOptions)
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (parseError) {
+            data = {
+              success: false,
+              message: "Invalid server response."
+            };
+          }
+        }
+
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: data
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        status: 0,
+        data: {
+          success: false,
+          message: "Network error. Please try again."
+        }
+      };
+    });
+}
+
+function authApiPost(path, body) {
+  return authApiRequest(path, {
+    method: "POST",
+    body: body
+  });
+}
+
+function authApiGet(path) {
+  return authApiRequest(path, {
+    method: "GET"
+  });
+}
+
+function mapApiUserToSessionUser(apiUser) {
+  var linkedId = null;
+
+  if (apiUser.linked_member_id) {
+    linkedId = "m" + apiUser.linked_member_id;
+  } else if (apiUser.linked_trainer_id) {
+    linkedId = "t" + apiUser.linked_trainer_id;
+  }
+
+  return {
+    email: apiUser.email,
+    name: apiUser.full_name,
+    role: apiUser.role,
+    linkedId: linkedId,
+    userId: apiUser.id,
+    loggedInAt: new Date().toISOString()
+  };
+}
+
+function saveSessionFromApiUser(apiUser) {
+  saveSession(mapApiUserToSessionUser(apiUser));
+}
+
+function loginWithApi(email, password) {
+  return authApiPost("login.php", {
+    email: email,
+    password: password
+  }).then(function (result) {
+    if (result.ok && result.data.success && result.data.data && result.data.data.user) {
+      return {
+        ok: true,
+        user: result.data.data.user
+      };
+    }
+
+    var message = result.data.message || "Invalid email or password. Please try again.";
+
+    if (result.status === 403 && message.toLowerCase().indexOf("activation") !== -1) {
+      return {
+        ok: false,
+        reason: "needs_activation",
+        message: message
+      };
+    }
+
+    if (result.status === 401) {
+      message = "Invalid email or password. Please try again.";
+    }
+
+    return {
+      ok: false,
+      message: message
+    };
+  });
+}
+
+function activateAccountWithApi(email, password, confirmPassword) {
+  return authApiPost("activate.php", {
+    email: email,
+    password: password,
+    confirmPassword: confirmPassword
+  }).then(function (result) {
+    if (result.ok && result.data.success) {
+      return {
+        ok: true,
+        message: result.data.message || "Account activated successfully"
+      };
+    }
+
+    var message = result.data.message || "Activation failed. Please try again.";
+    var reason = null;
+
+    if (result.status === 409) {
+      reason = "already_active";
+    } else if (result.status === 404) {
+      reason = "not_found";
+    }
+
+    return {
+      ok: false,
+      reason: reason,
+      message: message
+    };
+  });
+}
+
+function getServerSession() {
+  return authApiGet("session.php").then(function (result) {
+    if (result.ok && result.data.success && result.data.data && result.data.data.user) {
+      return {
+        ok: true,
+        user: result.data.data.user
+      };
+    }
+
+    return {
+      ok: false
+    };
+  });
+}
+
+function syncServerSession() {
+  return getServerSession().then(function (result) {
+    if (result.ok) {
+      saveSessionFromApiUser(result.user);
+      return true;
+    }
+
+    clearSession();
+    return false;
+  });
+}
+
+function checkLoginPageSession() {
+  return getServerSession().then(function (result) {
+    if (result.ok) {
+      saveSessionFromApiUser(result.user);
+      window.location.replace("dashboard.html");
+      return;
+    }
+
+    if (getSession()) {
+      clearSession();
+    }
+  });
+}
 
 // ---------- USER STORAGE ----------
 
@@ -310,8 +511,17 @@ function saveSession(user) {
     email: user.email,
     name: user.name,
     role: user.role,
-    loggedInAt: new Date().toISOString()
+    loggedInAt: user.loggedInAt || new Date().toISOString()
   };
+
+  if (user.linkedId) {
+    session.linkedId = user.linkedId;
+  }
+
+  if (user.userId) {
+    session.userId = user.userId;
+  }
+
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
@@ -342,6 +552,8 @@ function canManageTrainers() { return can("manageTrainers"); }
 function canManageSchedules() { return can("manageSchedules"); }
 function canManageWorkouts() { return can("manageWorkouts"); }
 function canManageMeetings() { return can("manageMeetings"); }
+function canManageDocuments() { return can("manageDocuments"); }
+function canManageFinance() { return can("manageFinance"); }
 
 function getVisibleNavLinks(role) {
   var allowed = PERMISSIONS[role] ? PERMISSIONS[role].nav : [];
@@ -358,7 +570,18 @@ function getRoleBadgeClass(role) { return PERMISSIONS[role] ? PERMISSIONS[role].
 function requireAuth() {
   if (!getSession()) {
     window.location.replace("index.html");
+    return;
   }
+
+  getServerSession().then(function (result) {
+    if (result.ok) {
+      saveSessionFromApiUser(result.user);
+      return;
+    }
+
+    clearSession();
+    window.location.replace("index.html");
+  });
 }
 
 function requirePageAccess(pageKey) {
@@ -372,9 +595,11 @@ function requirePageAccess(pageKey) {
 }
 
 function logout() {
-  clearSession();
-  sessionStorage.removeItem(SPLASH_KEY);
-  window.location.replace("index.html");
+  authApiPost("logout.php", {}).finally(function () {
+    clearSession();
+    sessionStorage.removeItem(SPLASH_KEY);
+    window.location.replace("index.html");
+  });
 }
 
 // ---------- SIDEBAR ----------
@@ -417,5 +642,284 @@ function mountSidebar(activeKey) {
   }
 }
 
+// ---------- LOGIN PAGE (index.html) ----------
+
+function setLoginFieldError(input, errorEl, message) {
+  errorEl.textContent = message;
+  errorEl.classList.add("show");
+  input.classList.add("invalid");
+  input.classList.remove("shake");
+  void input.offsetWidth;
+  input.classList.add("shake");
+}
+
+function clearLoginFieldError(input, errorEl) {
+  errorEl.textContent = "";
+  errorEl.classList.remove("show");
+  input.classList.remove("invalid");
+}
+
+function setLoginButtonLoading(button, loading) {
+  if (loading) {
+    button.classList.add("btn-loading");
+    button.disabled = true;
+  } else {
+    button.classList.remove("btn-loading");
+    button.disabled = false;
+  }
+}
+
+function initLoginPage() {
+  var loginForm = document.getElementById("loginForm");
+  var activateForm = document.getElementById("activateForm");
+  if (!loginForm || !activateForm) return;
+
+  var loginView = document.getElementById("loginView");
+  var activateView = document.getElementById("activateView");
+  var emailInput = document.getElementById("email");
+  var passwordInput = document.getElementById("password");
+  var loginError = document.getElementById("loginError");
+  var activateError = document.getElementById("activateError");
+  var activateSuccess = document.getElementById("activateSuccess");
+  var activateEmail = document.getElementById("activateEmail");
+  var activatePassword = document.getElementById("activatePassword");
+  var activateConfirm = document.getElementById("activateConfirm");
+  var strengthBar = document.getElementById("passwordStrengthBar");
+  var showActivateBtn = document.getElementById("showActivateBtn");
+  var showLoginBtn = document.getElementById("showLoginBtn");
+
+  if (!emailInput || !passwordInput || !loginError || !activateError || !activateSuccess) return;
+
+  function switchLoginView(showActivate) {
+    if (showActivate) {
+      loginView.style.display = "none";
+      activateView.style.display = "block";
+      activateView.classList.remove("view-switch");
+      void activateView.offsetWidth;
+      activateView.classList.add("view-switch");
+      if (emailInput.value.trim() && activateEmail) {
+        activateEmail.value = emailInput.value.trim();
+      }
+    } else {
+      activateView.style.display = "none";
+      loginView.style.display = "block";
+      loginView.classList.remove("view-switch");
+      void loginView.offsetWidth;
+      loginView.classList.add("view-switch");
+    }
+  }
+
+  if (showActivateBtn) {
+    showActivateBtn.addEventListener("click", function () {
+      switchLoginView(true);
+    });
+  }
+
+  if (showLoginBtn) {
+    showLoginBtn.addEventListener("click", function () {
+      switchLoginView(false);
+    });
+  }
+
+  function validateLoginForm() {
+    var isValid = true;
+    clearLoginFieldError(emailInput, document.getElementById("emailError"));
+    clearLoginFieldError(passwordInput, document.getElementById("passwordError"));
+
+    if (emailInput.value.trim() === "") {
+      setLoginFieldError(emailInput, document.getElementById("emailError"), "Email is required.");
+      isValid = false;
+    }
+    if (passwordInput.value.trim() === "") {
+      setLoginFieldError(passwordInput, document.getElementById("passwordError"), "Password is required.");
+      isValid = false;
+    }
+    return isValid;
+  }
+
+  function handleLoginSubmit(event) {
+    event.preventDefault();
+
+    loginError.classList.remove("show");
+    if (!validateLoginForm()) return;
+
+    var email = emailInput.value.trim();
+    var loginBtn = document.getElementById("loginSubmitBtn");
+    setLoginButtonLoading(loginBtn, true);
+
+    loginWithApi(email, passwordInput.value)
+      .then(function (result) {
+        if (!result.ok) {
+          if (result.reason === "needs_activation") {
+            loginError.textContent = "Your account needs activation. Set your password first.";
+            loginError.classList.add("show");
+            switchLoginView(true);
+            if (activateEmail) activateEmail.value = email;
+          } else {
+            loginError.textContent = result.message || "Invalid email or password. Please try again.";
+            loginError.classList.add("show");
+          }
+          setLoginButtonLoading(loginBtn, false);
+          return;
+        }
+
+        saveSessionFromApiUser(result.user);
+        loginBtn.classList.add("btn-success-flash");
+        setTimeout(function () {
+          window.location.replace("dashboard.html");
+        }, 350);
+      })
+      .catch(function () {
+        loginError.textContent = "Network error. Please try again.";
+        loginError.classList.add("show");
+        setLoginButtonLoading(loginBtn, false);
+      });
+  }
+
+  loginForm.addEventListener("submit", handleLoginSubmit);
+
+  emailInput.addEventListener("input", function () {
+    clearLoginFieldError(emailInput, document.getElementById("emailError"));
+  });
+  passwordInput.addEventListener("input", function () {
+    clearLoginFieldError(passwordInput, document.getElementById("passwordError"));
+  });
+
+  function updatePasswordStrength(value) {
+    if (!strengthBar) return;
+
+    var score = 0;
+    if (value.length >= 6) score++;
+    if (value.length >= 10) score++;
+    if (/[A-Z]/.test(value) && /[0-9]/.test(value)) score++;
+
+    strengthBar.className = "password-strength-bar";
+    if (score === 0) {
+      strengthBar.style.width = "0%";
+    } else if (score === 1) {
+      strengthBar.classList.add("weak");
+      strengthBar.style.width = "33%";
+    } else if (score === 2) {
+      strengthBar.classList.add("medium");
+      strengthBar.style.width = "66%";
+    } else {
+      strengthBar.classList.add("strong");
+      strengthBar.style.width = "100%";
+    }
+  }
+
+  if (activatePassword) {
+    activatePassword.addEventListener("input", function () {
+      clearLoginFieldError(activatePassword, document.getElementById("activatePasswordError"));
+      updatePasswordStrength(activatePassword.value);
+    });
+  }
+
+  if (activateConfirm) {
+    activateConfirm.addEventListener("input", function () {
+      clearLoginFieldError(activateConfirm, document.getElementById("activateConfirmError"));
+    });
+  }
+
+  if (activateEmail) {
+    activateEmail.addEventListener("input", function () {
+      clearLoginFieldError(activateEmail, document.getElementById("activateEmailError"));
+    });
+  }
+
+  function validateActivateForm() {
+    var isValid = true;
+    activateError.classList.remove("show");
+    activateSuccess.classList.remove("show");
+    clearLoginFieldError(activateEmail, document.getElementById("activateEmailError"));
+    clearLoginFieldError(activatePassword, document.getElementById("activatePasswordError"));
+    clearLoginFieldError(activateConfirm, document.getElementById("activateConfirmError"));
+
+    var email = activateEmail ? activateEmail.value.trim() : "";
+    if (email === "") {
+      setLoginFieldError(activateEmail, document.getElementById("activateEmailError"), "Email is required.");
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setLoginFieldError(activateEmail, document.getElementById("activateEmailError"), "Enter a valid email address.");
+      isValid = false;
+    }
+
+    var password = activatePassword ? activatePassword.value : "";
+    if (password.length < 6) {
+      setLoginFieldError(activatePassword, document.getElementById("activatePasswordError"), "Password must be at least 6 characters.");
+      isValid = false;
+    }
+    if (activateConfirm && activateConfirm.value !== password) {
+      setLoginFieldError(activateConfirm, document.getElementById("activateConfirmError"), "Passwords do not match.");
+      isValid = false;
+    }
+    return isValid;
+  }
+
+  function handleActivateSubmit(event) {
+    event.preventDefault();
+    if (!validateActivateForm()) return;
+
+    var activateBtn = document.getElementById("activateSubmitBtn");
+    setLoginButtonLoading(activateBtn, true);
+
+    activateAccountWithApi(
+      activateEmail.value.trim(),
+      activatePassword.value,
+      activateConfirm.value
+    )
+      .then(function (result) {
+        if (!result.ok) {
+          if (result.reason === "already_active") {
+            activateError.textContent = "This account is already active. Log in instead.";
+          } else if (result.reason === "not_found") {
+            activateError.textContent = "No account found. Contact your administrator.";
+          } else {
+            activateError.textContent = result.message || "Activation failed. Please try again.";
+          }
+          activateError.classList.add("show");
+          setLoginButtonLoading(activateBtn, false);
+          return;
+        }
+
+        activateSuccess.textContent = "Account activated! Redirecting to log in…";
+        activateSuccess.classList.add("show");
+        activateBtn.classList.add("btn-success-flash");
+
+        setTimeout(function () {
+          emailInput.value = activateEmail.value.trim();
+          passwordInput.value = "";
+          activateForm.reset();
+          if (strengthBar) {
+            strengthBar.style.width = "0%";
+            strengthBar.className = "password-strength-bar";
+          }
+          setLoginButtonLoading(activateBtn, false);
+          switchLoginView(false);
+        }, 1200);
+      })
+      .catch(function () {
+        activateError.textContent = "Network error. Please try again.";
+        activateError.classList.add("show");
+        setLoginButtonLoading(activateBtn, false);
+      });
+  }
+
+  activateForm.addEventListener("submit", handleActivateSubmit);
+
+  checkLoginPageSession();
+}
+
+function bootLoginPage() {
+  if (!document.getElementById("loginForm")) return;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initLoginPage);
+  } else {
+    initLoginPage();
+  }
+}
+
 // Seed users on load (same pattern as data.js).
 seedUsersIfEmpty();
+bootLoginPage();

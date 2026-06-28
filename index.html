@@ -10,8 +10,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 </head>
 <body>
+
+  <div class="login-ambient login-ambient-a" aria-hidden="true"></div>
+  <div class="login-ambient login-ambient-b" aria-hidden="true"></div>
 
   <div class="splash" id="splash">
     <div class="splash-logo">
@@ -22,7 +27,7 @@
   </div>
 
   <main class="login-wrap">
-    <section class="login-card page-enter login-card-glow">
+    <section class="login-card page-enter login-card-glow premium-panel">
 
       <!-- LOGIN VIEW -->
       <div id="loginView">
@@ -32,7 +37,7 @@
 
         <div class="form-error" id="loginError"></div>
 
-        <form id="loginForm" novalidate>
+        <form id="loginForm" method="post" action="#" novalidate>
           <div class="field">
             <label for="email">Email or username</label>
             <input type="text" id="email" name="email" placeholder="admin@shame.gym" autocomplete="username" />
@@ -92,7 +97,7 @@
         <div class="form-error" id="activateError"></div>
         <div class="form-success" id="activateSuccess"></div>
 
-        <form id="activateForm" novalidate>
+        <form id="activateForm" method="post" action="#" novalidate>
           <div class="field">
             <label for="activateEmail">Email</label>
             <input type="text" id="activateEmail" placeholder="your.email@example.com" autocomplete="username" />
@@ -132,245 +137,6 @@
 
   <script>
     (function () {
-      if (getSession()) {
-        window.location.replace("dashboard.html");
-        return;
-      }
-
-      var loginView = document.getElementById("loginView");
-      var activateView = document.getElementById("activateView");
-      var loginForm = document.getElementById("loginForm");
-      var activateForm = document.getElementById("activateForm");
-      var emailInput = document.getElementById("email");
-      var passwordInput = document.getElementById("password");
-      var loginError = document.getElementById("loginError");
-      var activateError = document.getElementById("activateError");
-      var activateSuccess = document.getElementById("activateSuccess");
-
-      function setFieldError(input, errorEl, message) {
-        errorEl.textContent = message;
-        errorEl.classList.add("show");
-        input.classList.add("invalid");
-        input.classList.remove("shake");
-        void input.offsetWidth;
-        input.classList.add("shake");
-      }
-
-      function clearFieldError(input, errorEl) {
-        errorEl.textContent = "";
-        errorEl.classList.remove("show");
-        input.classList.remove("invalid");
-      }
-
-      function switchView(showActivate) {
-        if (showActivate) {
-          loginView.style.display = "none";
-          activateView.style.display = "block";
-          activateView.classList.remove("view-switch");
-          void activateView.offsetWidth;
-          activateView.classList.add("view-switch");
-          if (emailInput.value.trim()) {
-            document.getElementById("activateEmail").value = emailInput.value.trim();
-          }
-        } else {
-          activateView.style.display = "none";
-          loginView.style.display = "block";
-          loginView.classList.remove("view-switch");
-          void loginView.offsetWidth;
-          loginView.classList.add("view-switch");
-        }
-      }
-
-      document.getElementById("showActivateBtn").addEventListener("click", function () {
-        switchView(true);
-      });
-      document.getElementById("showLoginBtn").addEventListener("click", function () {
-        switchView(false);
-      });
-
-      function validateLoginForm() {
-        var ok = true;
-        clearFieldError(emailInput, document.getElementById("emailError"));
-        clearFieldError(passwordInput, document.getElementById("passwordError"));
-
-        if (emailInput.value.trim() === "") {
-          setFieldError(emailInput, document.getElementById("emailError"), "Email is required.");
-          ok = false;
-        }
-        if (passwordInput.value.trim() === "") {
-          setFieldError(passwordInput, document.getElementById("passwordError"), "Password is required.");
-          ok = false;
-        }
-        return ok;
-      }
-
-      function setButtonLoading(btn, loading) {
-        if (loading) {
-          btn.classList.add("btn-loading");
-          btn.disabled = true;
-        } else {
-          btn.classList.remove("btn-loading");
-          btn.disabled = false;
-        }
-      }
-
-      loginForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        loginError.classList.remove("show");
-        if (!validateLoginForm()) return;
-
-        var email = emailInput.value.trim();
-        var pending = findUserByEmail(email);
-
-        if (pending && pending.needsPasswordSetup) {
-          loginError.textContent = "Your account needs activation. Set your password first.";
-          loginError.classList.add("show");
-          switchView(true);
-          document.getElementById("activateEmail").value = email;
-          return;
-        }
-
-        var loginBtn = document.getElementById("loginSubmitBtn");
-        setButtonLoading(loginBtn, true);
-
-        setTimeout(function () {
-          var user = findUser(email, passwordInput.value);
-          if (!user) {
-            loginError.textContent = "Invalid email or password. Please try again.";
-            loginError.classList.add("show");
-            setButtonLoading(loginBtn, false);
-            return;
-          }
-
-          saveSession(user);
-          loginBtn.classList.add("btn-success-flash");
-          setTimeout(function () {
-            window.location.replace("dashboard.html");
-          }, 350);
-        }, 400);
-      });
-
-      emailInput.addEventListener("input", function () {
-        clearFieldError(emailInput, document.getElementById("emailError"));
-      });
-      passwordInput.addEventListener("input", function () {
-        clearFieldError(passwordInput, document.getElementById("passwordError"));
-      });
-
-      // ---------- ACTIVATE FORM ----------
-
-      var activateEmail = document.getElementById("activateEmail");
-      var activatePassword = document.getElementById("activatePassword");
-      var activateConfirm = document.getElementById("activateConfirm");
-      var strengthBar = document.getElementById("passwordStrengthBar");
-
-      function updatePasswordStrength(value) {
-        var score = 0;
-        if (value.length >= 6) score++;
-        if (value.length >= 10) score++;
-        if (/[A-Z]/.test(value) && /[0-9]/.test(value)) score++;
-        strengthBar.className = "password-strength-bar";
-        if (score === 0) {
-          strengthBar.style.width = "0%";
-        } else if (score === 1) {
-          strengthBar.classList.add("weak");
-          strengthBar.style.width = "33%";
-        } else if (score === 2) {
-          strengthBar.classList.add("medium");
-          strengthBar.style.width = "66%";
-        } else {
-          strengthBar.classList.add("strong");
-          strengthBar.style.width = "100%";
-        }
-      }
-
-      activatePassword.addEventListener("input", function () {
-        clearFieldError(activatePassword, document.getElementById("activatePasswordError"));
-        updatePasswordStrength(activatePassword.value);
-      });
-
-      activateConfirm.addEventListener("input", function () {
-        clearFieldError(activateConfirm, document.getElementById("activateConfirmError"));
-      });
-      activateEmail.addEventListener("input", function () {
-        clearFieldError(activateEmail, document.getElementById("activateEmailError"));
-      });
-
-      function validateActivateForm() {
-        var ok = true;
-        activateError.classList.remove("show");
-        activateSuccess.classList.remove("show");
-        clearFieldError(activateEmail, document.getElementById("activateEmailError"));
-        clearFieldError(activatePassword, document.getElementById("activatePasswordError"));
-        clearFieldError(activateConfirm, document.getElementById("activateConfirmError"));
-
-        var email = activateEmail.value.trim();
-        if (email === "") {
-          setFieldError(activateEmail, document.getElementById("activateEmailError"), "Email is required.");
-          ok = false;
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setFieldError(activateEmail, document.getElementById("activateEmailError"), "Enter a valid email address.");
-          ok = false;
-        } else if (!findUserByEmail(email)) {
-          setFieldError(activateEmail, document.getElementById("activateEmailError"), "No account found. Contact your administrator.");
-          ok = false;
-        } else if (!isUserPendingActivation(email)) {
-          setFieldError(activateEmail, document.getElementById("activateEmailError"), "This account is already active. Log in instead.");
-          ok = false;
-        }
-
-        var pwd = activatePassword.value;
-        if (pwd.length < 6) {
-          setFieldError(activatePassword, document.getElementById("activatePasswordError"), "Password must be at least 6 characters.");
-          ok = false;
-        }
-        if (activateConfirm.value !== pwd) {
-          setFieldError(activateConfirm, document.getElementById("activateConfirmError"), "Passwords do not match.");
-          ok = false;
-        }
-        return ok;
-      }
-
-      activateForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        if (!validateActivateForm()) return;
-
-        var activateBtn = document.getElementById("activateSubmitBtn");
-        setButtonLoading(activateBtn, true);
-
-        setTimeout(function () {
-          var result = activateUserPassword(activateEmail.value.trim(), activatePassword.value);
-          if (!result.ok) {
-            if (result.reason === "already_active") {
-              activateError.textContent = "This account is already active. Log in instead.";
-            } else {
-              activateError.textContent = "No account found. Contact your administrator.";
-            }
-            activateError.classList.add("show");
-            setButtonLoading(activateBtn, false);
-            return;
-          }
-
-          activateSuccess.textContent = "Account activated! Redirecting to log in…";
-          activateSuccess.classList.add("show");
-          activateBtn.classList.add("btn-success-flash");
-
-          setTimeout(function () {
-            emailInput.value = activateEmail.value.trim();
-            passwordInput.value = "";
-            activateForm.reset();
-            strengthBar.style.width = "0%";
-            strengthBar.className = "password-strength-bar";
-            setButtonLoading(activateBtn, false);
-            switchView(false);
-          }, 1200);
-        }, 500);
-      });
-    })();
-  </script>
-
-  <script>
-    (function () {
       var splash = document.getElementById("splash");
 
       function dismissSplash() {
@@ -387,5 +153,6 @@
       }
     })();
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>

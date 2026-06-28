@@ -1,9 +1,298 @@
 /* ============================================================
    trainers.js — trainer management (IAP-40 add trainer).
-   Same pattern as members, but rendered as a grid of cards:
-     renderTrainers()  -> draw cards from the saved array
-     validate -> save -> re-render -> showToast
+   Read/list view loads from api/trainers/list.php with localStorage fallback.
+   Create/update/delete use PHP APIs with localStorage emergency fallback.
    ============================================================ */
+
+var TRAINERS_API_URL = "api/trainers/list.php";
+var TRAINERS_CREATE_API_URL = "api/trainers/create.php";
+var TRAINERS_UPDATE_API_URL = "api/trainers/update.php";
+var TRAINERS_DELETE_API_URL = "api/trainers/delete.php";
+
+// Trainers currently shown on the page (null until first load finishes).
+var pageTrainerList = null;
+
+// ---------- API READ HELPERS ----------
+
+function mapApiTrainerToFrontendTrainer(apiTrainer) {
+  return {
+    id: "t" + apiTrainer.id,
+    name: apiTrainer.full_name,
+    email: apiTrainer.email,
+    phone: apiTrainer.phone || "",
+    specialization: apiTrainer.specialization || "",
+    availability: apiTrainer.availability || ""
+  };
+}
+
+function loadTrainersFromApi() {
+  return fetch(TRAINERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load trainers."
+          };
+        }
+
+        var apiTrainers = data.data && data.data.trainers ? data.data.trainers : [];
+        var mappedTrainers = apiTrainers.map(mapApiTrainerToFrontendTrainer);
+
+        return {
+          ok: true,
+          trainers: mappedTrainers
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadTrainersWithFallback() {
+  return loadTrainersFromApi().then(function (result) {
+    if (result.ok) {
+      pageTrainerList = result.trainers;
+      renderTrainers();
+      return;
+    }
+
+    console.warn("Trainers API unavailable:", result.message);
+    pageTrainerList = getTrainers();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load trainers from server. Showing saved local data.", "info");
+    }
+
+    renderTrainers();
+  });
+}
+
+function refreshTrainersFromLocalStorage() {
+  pageTrainerList = getTrainers();
+  renderTrainers();
+}
+
+// ---------- API WRITE HELPERS ----------
+
+function mapFrontendTrainerToApiPayload(trainerData) {
+  var apiPayload = {
+    full_name: trainerData.name,
+    email: trainerData.email,
+    phone: trainerData.phone || null,
+    specialization: trainerData.specialization,
+    availability: trainerData.availability,
+    status: "active"
+  };
+
+  if (trainerData.id) {
+    apiPayload.id = trainerData.id;
+  }
+
+  return apiPayload;
+}
+
+function normalizeTrainerApiResponse(apiTrainer) {
+  return mapApiTrainerToFrontendTrainer(apiTrainer);
+}
+
+function callTrainerWriteApi(url, apiPayload) {
+  return fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(apiPayload)
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Request failed.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Success",
+          trainer: data.data && data.data.trainer
+            ? normalizeTrainerApiResponse(data.data.trainer)
+            : null,
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function createTrainerWithApi(trainerData) {
+  return callTrainerWriteApi(
+    TRAINERS_CREATE_API_URL,
+    mapFrontendTrainerToApiPayload(trainerData)
+  );
+}
+
+function updateTrainerWithApi(trainerData) {
+  return callTrainerWriteApi(
+    TRAINERS_UPDATE_API_URL,
+    mapFrontendTrainerToApiPayload(trainerData)
+  );
+}
+
+function deleteTrainerFromApi(trainerId) {
+  return fetch(TRAINERS_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: trainerId })
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not delete trainer.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Trainer deleted successfully",
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function saveTrainerWithApi(trainerData, isEdit) {
+  var apiCall = isEdit ? updateTrainerWithApi(trainerData) : createTrainerWithApi(trainerData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return result;
+    }
+
+    if (result.networkError) {
+      saveTrainerToLocalStorage(trainerData, isEdit);
+      return {
+        ok: true,
+        localOnly: true,
+        message: "Server unavailable. Saved locally only."
+      };
+    }
+
+    return result;
+  });
+}
+
+function saveTrainerToLocalStorage(trainerData, isEdit) {
+  var trainers = getTrainers();
+
+  if (isEdit) {
+    for (var i = 0; i < trainers.length; i++) {
+      if (trainers[i].id === trainerData.id) {
+        syncTrainerUserAccount(editingTrainerEmail, trainerData.name, trainerData.email, trainerData.id);
+        syncScheduleTrainerName(editingTrainerName, trainerData.name);
+        if (normalizeTrainerEmail(editingTrainerEmail) !== normalizeTrainerEmail(trainerData.email)) {
+          var members = getMembers();
+          var oldTarget = normalizeTrainerEmail(editingTrainerEmail);
+          var newEmail = trainerData.email.trim();
+          var membersChanged = false;
+          members.forEach(function (member) {
+            if (normalizeTrainerEmail(member.assignedTrainerEmail) === oldTarget) {
+              member.assignedTrainerEmail = newEmail;
+              membersChanged = true;
+            }
+          });
+          if (membersChanged) saveMembers(members);
+        }
+        trainers[i].name = trainerData.name;
+        trainers[i].email = trainerData.email;
+        trainers[i].phone = trainerData.phone;
+        trainers[i].specialization = trainerData.specialization;
+        trainers[i].availability = trainerData.availability;
+        break;
+      }
+    }
+    saveTrainers(trainers);
+    return;
+  }
+
+  trainerData.id = generateId();
+  trainers.push(trainerData);
+  saveTrainers(trainers);
+  createPendingUser(trainerData.email, trainerData.name, "trainer", trainerData.id);
+}
+
+function deleteTrainerToLocalStorage(trainer) {
+  var trainers = getTrainers().filter(function (item) {
+    return item.id !== trainer.id;
+  });
+  saveTrainers(trainers);
+  removeTrainerUserAccount(trainer.email, trainer.id);
+  clearMemberAssignmentsForTrainer(trainer.email);
+}
 
 // ---------- SMALL SHARED FORM HELPERS ----------
 // (Same helpers as the other CRUD pages so every form behaves identically.)
@@ -150,7 +439,7 @@ function renderTrainerCard(trainer) {
     deleteBtn.className = "btn btn-ghost btn-sm";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", function () {
-      deleteTrainer(trainer);
+      confirmDeleteTrainer(trainer);
     });
 
     actions.appendChild(editBtn);
@@ -161,9 +450,9 @@ function renderTrainerCard(trainer) {
   return card;
 }
 
-// Read trainers from localStorage and (re)draw the whole grid.
+// Read trainers for display and (re)draw the whole grid.
 function renderTrainers() {
-  var trainers = getTrainers();
+  var trainers = pageTrainerList !== null ? pageTrainerList : getTrainers();
   var grid = document.getElementById("trainersGrid");
   grid.innerHTML = ""; // clear before redrawing
 
@@ -274,6 +563,7 @@ function saveTrainer() {
   if (!validateTrainerForm()) return;
 
   var trainerData = {
+    id: editingTrainerId,
     name: document.getElementById("tName").value.trim(),
     email: document.getElementById("tEmail").value.trim(),
     phone: getPhoneFormValue("tPhoneCountry", "tPhone"),
@@ -281,60 +571,67 @@ function saveTrainer() {
     availability: document.getElementById("tAvail").value
   };
 
-  var trainers = getTrainers();
+  var isEdit = !!editingTrainerId;
 
-  if (editingTrainerId) {
-    for (var i = 0; i < trainers.length; i++) {
-      if (trainers[i].id === editingTrainerId) {
-        syncTrainerUserAccount(editingTrainerEmail, trainerData.name, trainerData.email, editingTrainerId);
-        syncScheduleTrainerName(editingTrainerName, trainerData.name);
-        if (normalizeTrainerEmail(editingTrainerEmail) !== normalizeTrainerEmail(trainerData.email)) {
-          var members = getMembers();
-          var oldTarget = normalizeTrainerEmail(editingTrainerEmail);
-          var newEmail = trainerData.email.trim();
-          var membersChanged = false;
-          members.forEach(function (member) {
-            if (normalizeTrainerEmail(member.assignedTrainerEmail) === oldTarget) {
-              member.assignedTrainerEmail = newEmail;
-              membersChanged = true;
-            }
-          });
-          if (membersChanged) saveMembers(members);
-        }
-        trainers[i].name = trainerData.name;
-        trainers[i].email = trainerData.email;
-        trainers[i].phone = trainerData.phone;
-        trainers[i].specialization = trainerData.specialization;
-        trainers[i].availability = trainerData.availability;
-        break;
+  saveTrainerWithApi(trainerData, isEdit).then(function (result) {
+    if (!result.ok) {
+      console.warn("Trainer save failed:", result.message);
+      if (typeof showToast === "function") {
+        showToast(result.message, "error");
       }
+      return;
     }
-    saveTrainers(trainers);
+
     closeTrainerModal();
-    renderTrainers();
-    showToast("Trainer updated successfully", "success");
+
+    if (result.localOnly) {
+      refreshTrainersFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(result.message, "success");
+    }
+
+    loadTrainersWithFallback();
+  });
+}
+
+function handleDeleteTrainer(trainer) {
+  deleteTrainerFromApi(trainer.id).then(function (result) {
+    if (result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "success");
+      }
+      loadTrainersWithFallback();
+      return;
+    }
+
+    if (result.networkError) {
+      deleteTrainerToLocalStorage(trainer);
+      refreshTrainersFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast("Server unavailable. Saved locally only.", "info");
+      }
+      return;
+    }
+
+    console.warn("Trainer delete failed:", result.message);
+    if (typeof showToast === "function") {
+      showToast(result.message, "error");
+    }
+  });
+}
+
+function confirmDeleteTrainer(trainer) {
+  if (!confirm("Are you sure you want to deactivate this trainer?")) {
     return;
   }
 
-  trainerData.id = generateId();
-  trainers.push(trainerData);
-  saveTrainers(trainers);
-  createPendingUser(trainerData.email, trainerData.name, "trainer", trainerData.id);
-
-  closeTrainerModal();
-  renderTrainers();
-  showToast("Trainer added. They can activate their account from the login page.", "success");
-}
-
-function deleteTrainer(trainer) {
-  if (!confirm("Delete " + trainer.name + "? Their login account will be removed.")) return;
-
-  var trainers = getTrainers().filter(function (item) { return item.id !== trainer.id; });
-  saveTrainers(trainers);
-  removeTrainerUserAccount(trainer.email, trainer.id);
-  clearMemberAssignmentsForTrainer(trainer.email);
-  renderTrainers();
-  showToast("Trainer deleted", "info");
+  handleDeleteTrainer(trainer);
 }
 
 // ---------- WIRING ----------

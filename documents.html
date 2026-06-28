@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Documents</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("documents");</script>
+</head>
+<body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Documents</h1>
+          <p class="subtitle">Organization policies, guides, and shared files.</p>
+        </div>
+        <button class="btn btn-primary" id="uploadDocumentBtn" style="display:none;">+ Upload document</button>
+      </div>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+            <label for="docSearch">Search</label>
+            <input type="text" id="docSearch" placeholder="Title, keywords, description…" />
+          </div>
+          <div class="field" style="min-width:160px; margin-bottom:0;">
+            <label for="docCategoryFilter">Category</label>
+            <select id="docCategoryFilter">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-ghost" id="docClearFilters">Clear</button>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>File</th>
+              <th>Size</th>
+              <th>Access</th>
+              <th id="documentsActionsHead">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="documentsBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="documentModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="documentModalTitle">
+      <div class="modal-head">
+        <h2 id="documentModalTitle">Upload document</h2>
+        <button class="modal-close" id="documentModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="documentForm" novalidate enctype="multipart/form-data">
+        <div class="field">
+          <label for="docTitle">Title</label>
+          <input type="text" id="docTitle" placeholder="e.g. Member Handbook" />
+          <span class="field-error" id="docTitleError"></span>
+        </div>
+        <div class="field">
+          <label for="docCategory">Category</label>
+          <input type="text" id="docCategory" placeholder="e.g. Policy" value="General" />
+          <span class="field-error" id="docCategoryError"></span>
+        </div>
+        <div class="field">
+          <label for="docDescription">Description</label>
+          <textarea id="docDescription" rows="3" placeholder="Optional notes…"></textarea>
+        </div>
+        <div class="field">
+          <label for="docKeywords">Keywords</label>
+          <input type="text" id="docKeywords" placeholder="Comma-separated search terms" />
+        </div>
+        <div class="field">
+          <label>Access roles</label>
+          <div id="docAccessRoles" class="checkbox-list"></div>
+          <span class="field-hint">Admin access is always included.</span>
+        </div>
+        <div class="field" id="docFileField">
+          <label for="docFile">File</label>
+          <input type="file" id="docFile" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" />
+          <span class="field-hint">PDF, DOC, DOCX, TXT, PNG, JPG — max 10 MB</span>
+          <span class="field-error" id="docFileError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="documentCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="documentSubmitBtn">Save document</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/toast.js"></script>
+  <script src="js/documents.js?v=20260628"></script>
+  <script>
+    mountSidebar("documents");
+    initDocumentsPage();
+  </script>
+  <script src="js/ui-enhancements.js"></script>
+</body>
+</html>

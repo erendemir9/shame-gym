@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Polls</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("polls");</script>
+</head>
+<body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Polls</h1>
+          <p class="subtitle">Confidential organization ballots and vote results.</p>
+        </div>
+        <button class="btn btn-primary" id="createPollBtn" style="display:none;">+ Create poll</button>
+      </div>
+
+      <div id="pollsContainer" class="polls-grid"></div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="pollModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pollModalTitle">
+      <div class="modal-head">
+        <h2 id="pollModalTitle">Create poll</h2>
+        <button class="modal-close" id="pollModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="pollForm" novalidate>
+        <div class="field">
+          <label for="pollQuestion">Question</label>
+          <input type="text" id="pollQuestion" placeholder="e.g. Should we extend weekend hours?" />
+          <span class="field-error" id="pollQuestionError"></span>
+        </div>
+        <div class="field">
+          <label for="pollDescription">Description</label>
+          <textarea id="pollDescription" rows="3" placeholder="Optional context for voters…"></textarea>
+        </div>
+        <div class="field">
+          <label>Options</label>
+          <div id="pollOptionsList"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="addPollOptionBtn" style="margin-top:8px;">+ Add option</button>
+          <span class="field-error" id="pollOptionsError"></span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="pollCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="pollSubmitBtn">Save poll</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/toast.js"></script>
+  <script src="js/polls.js?v=20260628"></script>
+  <script>
+    mountSidebar("polls");
+    initPollsPage();
+  </script>
+  <script src="js/ui-enhancements.js"></script>
+</body>
+</html>

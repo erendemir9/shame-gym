@@ -1,10 +1,8 @@
 /* ============================================================
-   data.js — sample/seed data + localStorage helpers (no backend).
-   Every page reads and writes data through the get/save helpers below,
-   so the same pattern is reused everywhere:
-     var list = getMembers();   // read array
-     list.push(newItem);        // change it
-     saveMembers(list);         // persist + survives refresh
+   data.js — seed data and localStorage emergency fallback helpers.
+   Primary application data is loaded and saved through PHP APIs
+   and MySQL. These helpers remain for offline/API-failure fallback
+   and for shared utilities such as generateId() and readList().
    ============================================================ */
 
 // localStorage keys. One key per data type.

@@ -1,9 +1,385 @@
 /* ============================================================
    schedules.js — class schedule management (IAP-43).
-   Same pattern as the other pages. Extra detail: the trainer dropdown
-   is filled from the trainers saved in localStorage, so it always
-   matches the current coaching team.
+   Read/list view loads from api/classes/list.php with localStorage fallback.
+   Create/update/delete use PHP APIs with localStorage emergency fallback.
+   Enrollments load from api/enrollments/* with the same fallback pattern.
    ============================================================ */
+
+var CLASSES_API_URL = "api/classes/list.php";
+var CLASSES_CREATE_API_URL = "api/classes/create.php";
+var CLASSES_UPDATE_API_URL = "api/classes/update.php";
+var CLASSES_DELETE_API_URL = "api/classes/delete.php";
+var TRAINERS_API_URL = "api/trainers/list.php";
+
+// Classes currently shown on the page (null until first load finishes).
+var pageClassList = null;
+
+// Trainer options for the class form (null until first load finishes).
+var pageTrainerOptionsList = null;
+
+// ---------- API READ HELPERS ----------
+
+function mapApiClassToFrontendSchedule(apiClass) {
+  return {
+    id: "s" + apiClass.id,
+    className: apiClass.class_name,
+    trainerName: apiClass.trainer_name,
+    date: apiClass.class_date,
+    time: apiClass.class_time ? apiClass.class_time.substring(0, 5) : "",
+    duration: apiClass.duration_minutes,
+    capacity: apiClass.capacity,
+    enrolledCount: typeof apiClass.enrolled_count === "number" ? apiClass.enrolled_count : 0,
+    status: apiClass.status || "scheduled"
+  };
+}
+
+function loadClassesFromApi() {
+  return fetch(CLASSES_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load classes."
+          };
+        }
+
+        var apiClasses = data.data && data.data.classes ? data.data.classes : [];
+        var mappedClasses = apiClasses.map(mapApiClassToFrontendSchedule);
+
+        return {
+          ok: true,
+          classes: mappedClasses
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadClassesWithFallback() {
+  return loadClassesFromApi().then(function (result) {
+    if (result.ok) {
+      pageClassList = result.classes;
+      renderSchedules();
+      return;
+    }
+
+    console.warn("Classes API unavailable:", result.message);
+    pageClassList = getSchedules();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load classes from server. Showing saved local data.", "info");
+    }
+
+    renderSchedules();
+  });
+}
+
+function refreshSchedulesFromLocalStorage() {
+  pageClassList = getSchedules();
+  renderSchedules();
+}
+
+// ---------- TRAINER OPTIONS FOR CLASS FORM ----------
+
+function mapApiTrainerToScheduleOption(apiTrainer) {
+  return {
+    id: "t" + apiTrainer.id,
+    name: apiTrainer.full_name,
+    email: apiTrainer.email,
+    specialization: apiTrainer.specialization || "",
+    availability: apiTrainer.availability || ""
+  };
+}
+
+function loadTrainerOptionsFromApi() {
+  return fetch(TRAINERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load trainers."
+          };
+        }
+
+        var apiTrainers = data.data && data.data.trainers ? data.data.trainers : [];
+        var trainerOptions = apiTrainers.map(mapApiTrainerToScheduleOption);
+
+        return {
+          ok: true,
+          trainers: trainerOptions
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadTrainerOptionsWithFallback() {
+  return loadTrainerOptionsFromApi().then(function (result) {
+    if (result.ok) {
+      pageTrainerOptionsList = result.trainers;
+      return result;
+    }
+
+    console.warn("Trainers API unavailable for schedule dropdown:", result.message);
+    pageTrainerOptionsList = getTrainers();
+    return result;
+  });
+}
+
+function getScheduleTrainerOptions() {
+  return pageTrainerOptionsList !== null ? pageTrainerOptionsList : getTrainers();
+}
+
+// ---------- API WRITE HELPERS ----------
+
+function resolveTrainerIdFromName(trainerName) {
+  if (!trainerName || trainerName.trim() === "") {
+    return null;
+  }
+
+  var trainers = getScheduleTrainerOptions();
+  for (var i = 0; i < trainers.length; i++) {
+    if (trainers[i].name === trainerName) {
+      var match = String(trainers[i].id).match(/^t(\d+)$/);
+      if (match) return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function mapFrontendScheduleToApiPayload(classData) {
+  var trainerId = resolveTrainerIdFromName(classData.trainerName);
+  var apiPayload = {
+    class_name: classData.className,
+    trainer_id: trainerId,
+    class_date: classData.date,
+    class_time: classData.time,
+    duration_minutes: classData.duration,
+    capacity: classData.capacity,
+    status: "scheduled"
+  };
+
+  if (classData.id) {
+    apiPayload.id = classData.id;
+  }
+
+  return apiPayload;
+}
+
+function normalizeClassApiResponse(apiClass) {
+  return mapApiClassToFrontendSchedule(apiClass);
+}
+
+function callClassWriteApi(url, apiPayload) {
+  return fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(apiPayload)
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Request failed.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Success",
+          classItem: data.data && data.data.class
+            ? normalizeClassApiResponse(data.data.class)
+            : null,
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function createClassWithApi(classData) {
+  return callClassWriteApi(
+    CLASSES_CREATE_API_URL,
+    mapFrontendScheduleToApiPayload(classData)
+  );
+}
+
+function updateClassWithApi(classData) {
+  return callClassWriteApi(
+    CLASSES_UPDATE_API_URL,
+    mapFrontendScheduleToApiPayload(classData)
+  );
+}
+
+function deleteClassFromApi(classId) {
+  return fetch(CLASSES_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: classId })
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not delete class.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Class deleted successfully",
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function saveClassWithApi(classData, isEdit) {
+  var apiCall = isEdit ? updateClassWithApi(classData) : createClassWithApi(classData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return result;
+    }
+
+    if (result.networkError) {
+      saveClassToLocalStorage(classData, isEdit);
+      return {
+        ok: true,
+        localOnly: true,
+        message: "Server unavailable. Saved locally only."
+      };
+    }
+
+    return result;
+  });
+}
+
+function saveClassToLocalStorage(classData, isEdit) {
+  var schedules = getSchedules();
+
+  if (isEdit) {
+    for (var i = 0; i < schedules.length; i++) {
+      if (schedules[i].id === classData.id) {
+        schedules[i].className = classData.className;
+        schedules[i].trainerName = classData.trainerName;
+        schedules[i].date = classData.date;
+        schedules[i].time = classData.time;
+        schedules[i].duration = classData.duration;
+        schedules[i].capacity = classData.capacity;
+        break;
+      }
+    }
+    saveSchedules(schedules);
+    return;
+  }
+
+  classData.id = generateId();
+  schedules.push(classData);
+  saveSchedules(schedules);
+}
+
+function deleteClassToLocalStorage(item) {
+  saveSchedules(getSchedules().filter(function (schedule) {
+    return schedule.id !== item.id;
+  }));
+  removeEnrollmentsForClass(item.id);
+}
+
+function getEnrollmentCountForSchedule(item) {
+  if (typeof item.enrolledCount === "number") {
+    return item.enrolledCount;
+  }
+  return getEnrollmentCount(item.id);
+}
 
 function showFieldError(input, errorEl, message) {
   errorEl.textContent = message;
@@ -74,7 +450,7 @@ function getLoggedInTrainerName() {
 }
 
 function getSchedulesForView() {
-  var schedules = getSchedules();
+  var schedules = pageClassList !== null ? pageClassList : getSchedules();
   if (!isTrainerView()) return schedules;
 
   var trainerName = getLoggedInTrainerName();
@@ -86,17 +462,33 @@ function getSchedulesForView() {
 var editingClassId = null;
 var activeRosterClass = null;
 
-function populateTrainerSelect() {
+function populateTrainerSelect(selectedTrainerName) {
   var select = document.getElementById("cTrainer");
-  var trainers = getTrainers();
+  if (!select) return;
+
+  var trainerOptions = getScheduleTrainerOptions();
   select.innerHTML = '<option value="">Select a trainer…</option>';
 
-  trainers.forEach(function (trainer) {
+  var seenNames = {};
+
+  trainerOptions.forEach(function (trainer) {
+    seenNames[trainer.name] = true;
     var option = document.createElement("option");
     option.value = trainer.name;
-    option.textContent = trainer.name + " (" + trainer.specialization + ")";
+    option.textContent = trainer.name + " (" + (trainer.specialization || "Trainer") + ")";
     select.appendChild(option);
   });
+
+  if (selectedTrainerName && !seenNames[selectedTrainerName]) {
+    var currentOption = document.createElement("option");
+    currentOption.value = selectedTrainerName;
+    currentOption.textContent = selectedTrainerName + " (current)";
+    select.appendChild(currentOption);
+  }
+
+  if (selectedTrainerName) {
+    select.value = selectedTrainerName;
+  }
 }
 
 function textCell(text) {
@@ -137,7 +529,7 @@ function configureScheduleTableHeaders() {
 
 function renderScheduleRow(item) {
   var tr = document.createElement("tr");
-  var enrolled = getEnrollmentCount(item.id);
+  var enrolled = getEnrollmentCountForSchedule(item);
   var session = getSession();
 
   tr.appendChild(textCell(item.className));
@@ -162,9 +554,25 @@ function renderScheduleRow(item) {
       unenrollBtn.className = "btn btn-ghost btn-sm";
       unenrollBtn.textContent = "Unenroll";
       unenrollBtn.addEventListener("click", function () {
-        unenrollFromClass(item.id, session.email);
-        renderSchedules();
-        showToast("Removed from " + item.className, "info");
+        unenrollFromClass(item.id, session.email).then(function (result) {
+          if (!result.ok) {
+            if (typeof showToast === "function") {
+              showToast(result.message || "Could not unenroll", "error");
+            }
+            return;
+          }
+
+          if (result.localOnly) {
+            if (typeof showToast === "function") {
+              showToast(result.message, "info");
+            }
+            return;
+          }
+
+          if (typeof showToast === "function") {
+            showToast(result.message || ("Removed from " + item.className), "success");
+          }
+        });
       });
       actionsTd.appendChild(unenrollBtn);
     } else if (enrolled >= item.capacity) {
@@ -177,13 +585,27 @@ function renderScheduleRow(item) {
       enrollBtn.className = "btn btn-primary btn-sm";
       enrollBtn.textContent = "Enroll";
       enrollBtn.addEventListener("click", function () {
-        var result = enrollInClass(item.id, session.email);
-        if (!result.ok) {
-          showToast(result.reason === "full" ? "Class is full" : "Could not enroll", "error");
-          return;
-        }
-        renderSchedules();
-        showToast("Enrolled in " + item.className, "success");
+        enrollInClass(item.id, session.email).then(function (result) {
+          if (!result.ok) {
+            var errorMessage = result.message ||
+              (result.reason === "full" ? "Class is full" : "Could not enroll");
+            if (typeof showToast === "function") {
+              showToast(errorMessage, "error");
+            }
+            return;
+          }
+
+          if (result.localOnly) {
+            if (typeof showToast === "function") {
+              showToast(result.message, "info");
+            }
+            return;
+          }
+
+          if (typeof showToast === "function") {
+            showToast(result.message || ("Enrolled in " + item.className), "success");
+          }
+        });
       });
       actionsTd.appendChild(enrollBtn);
     }
@@ -204,7 +626,7 @@ function renderScheduleRow(item) {
     deleteBtn.className = "btn btn-ghost btn-sm";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", function () {
-      deleteClass(item);
+      confirmDeleteClass(item);
     });
 
     adminActionsTd.appendChild(editBtn);
@@ -264,13 +686,35 @@ function openRosterModal(item) {
   document.getElementById("rosterModalTitle").textContent = item.className;
   document.getElementById("rosterModalSubtitle").textContent =
     formatDate(item.date) + " at " + item.time + " · with " + item.trainerName;
-  renderRosterList();
-  document.getElementById("rosterModal").classList.add("open");
+
+  function showRosterModal() {
+    renderRosterList();
+    document.getElementById("rosterModal").classList.add("open");
+  }
+
+  if (typeof loadEnrollmentsForClassFromApi !== "function") {
+    showRosterModal();
+    return;
+  }
+
+  loadEnrollmentsForClassFromApi(item.id).then(function () {
+    showRosterModal();
+  }).catch(function () {
+    showRosterModal();
+  });
 }
 
 function closeRosterModal() {
   activeRosterClass = null;
   document.getElementById("rosterModal").classList.remove("open");
+
+  if (typeof loadEnrollmentsWithFallback === "function") {
+    loadEnrollmentsWithFallback().then(function () {
+      if (typeof renderSchedules === "function") {
+        renderSchedules();
+      }
+    });
+  }
 }
 
 function renderRosterList() {
@@ -323,10 +767,27 @@ function renderRosterList() {
 function removeRosterMember(classItem, memberEmail, memberName) {
   if (!confirm("Remove " + memberName + " from " + classItem.className + "?")) return;
 
-  unenrollFromClass(classItem.id, memberEmail);
-  renderRosterList();
-  renderSchedules();
-  showToast("Member removed from class", "info");
+  unenrollFromClass(classItem.id, memberEmail).then(function (result) {
+    if (!result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message || "Could not remove member", "error");
+      }
+      return;
+    }
+
+    renderRosterList();
+
+    if (result.localOnly) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(result.message || "Member removed from class", "success");
+    }
+  });
 }
 
 function openClassModal() {
@@ -342,8 +803,7 @@ function openClassModalForEdit(item) {
   editingClassId = item.id;
   document.getElementById("classModalTitle").textContent = "Edit class";
   document.getElementById("cName").value = item.className;
-  populateTrainerSelect();
-  document.getElementById("cTrainer").value = item.trainerName;
+  populateTrainerSelect(item.trainerName);
   document.getElementById("cDate").value = item.date;
   document.getElementById("cTime").value = item.time;
   document.getElementById("cDuration").value = item.duration;
@@ -413,6 +873,7 @@ function saveClass() {
   if (!validateClassForm()) return;
 
   var classData = {
+    id: editingClassId,
     className: document.getElementById("cName").value.trim(),
     trainerName: document.getElementById("cTrainer").value,
     date: document.getElementById("cDate").value,
@@ -421,47 +882,82 @@ function saveClass() {
     capacity: Number(document.getElementById("cCapacity").value)
   };
 
-  var schedules = getSchedules();
-
-  if (editingClassId) {
-    for (var i = 0; i < schedules.length; i++) {
-      if (schedules[i].id === editingClassId) {
-        schedules[i].className = classData.className;
-        schedules[i].trainerName = classData.trainerName;
-        schedules[i].date = classData.date;
-        schedules[i].time = classData.time;
-        schedules[i].duration = classData.duration;
-        schedules[i].capacity = classData.capacity;
-        break;
-      }
-    }
-    saveSchedules(schedules);
-    closeClassModal();
-    renderSchedules();
-    showToast("Class updated successfully", "success");
+  if (!resolveTrainerIdFromName(classData.trainerName)) {
+    showFieldError(
+      document.getElementById("cTrainer"),
+      document.getElementById("cTrainerError"),
+      "Choose a valid trainer."
+    );
     return;
   }
 
-  classData.id = generateId();
-  schedules.push(classData);
-  saveSchedules(schedules);
+  var isEdit = !!editingClassId;
 
-  closeClassModal();
-  renderSchedules();
-  showToast("Class created successfully", "success");
+  saveClassWithApi(classData, isEdit).then(function (result) {
+    if (!result.ok) {
+      console.warn("Class save failed:", result.message);
+      if (typeof showToast === "function") {
+        showToast(result.message, "error");
+      }
+      return;
+    }
+
+    closeClassModal();
+
+    if (result.localOnly) {
+      refreshSchedulesFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(result.message, "success");
+    }
+
+    loadClassesWithFallback();
+  });
 }
 
-function deleteClass(item) {
-  var enrolled = getEnrollmentCount(item.id);
-  var message = enrolled
-    ? "Delete " + item.className + "? " + enrolled + " member(s) are enrolled and will be unenrolled."
-    : "Delete " + item.className + "?";
-  if (!confirm(message)) return;
+function handleDeleteClass(item) {
+  deleteClassFromApi(item.id).then(function (result) {
+    if (result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "success");
+      }
+      loadClassesWithFallback();
+      return;
+    }
 
-  saveSchedules(getSchedules().filter(function (schedule) { return schedule.id !== item.id; }));
-  removeEnrollmentsForClass(item.id);
-  renderSchedules();
-  showToast("Class deleted", "info");
+    if (result.networkError) {
+      deleteClassToLocalStorage(item);
+      refreshSchedulesFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast("Server unavailable. Saved locally only.", "info");
+      }
+      return;
+    }
+
+    console.warn("Class delete failed:", result.message);
+    if (typeof showToast === "function") {
+      showToast(result.message, "error");
+    }
+  });
+}
+
+function confirmDeleteClass(item) {
+  var enrolled = getEnrollmentCountForSchedule(item);
+  var message = "Are you sure you want to cancel this class?";
+  if (enrolled > 0) {
+    message += " " + enrolled + " member(s) are enrolled.";
+  }
+
+  if (!confirm(message)) {
+    return;
+  }
+
+  handleDeleteClass(item);
 }
 
 function initSchedulePage() {

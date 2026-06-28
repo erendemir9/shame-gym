@@ -9,12 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
 
   <!-- GUARDS: need a session; every role may view Schedules. -->
   <script src="js/auth.js"></script>
   <script>requireAuth(); requirePageAccess("schedules");</script>
 </head>
 <body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -123,13 +126,32 @@
   </div>
 
   <script src="js/data.js"></script>
-  <script src="js/enrollments.js"></script>
+  <script src="js/enrollments.js?v=20260628"></script>
   <script src="js/toast.js"></script>
-  <script src="js/schedules.js"></script>
+  <script src="js/schedules.js?v=20260628"></script>
   <script>
     mountSidebar("schedules"); // sidebar adapts to the role
     initSchedulePage();        // wire (admin) or strip (read-only) management UI
-    renderSchedules();         // draw the table on load
+
+    function startSchedulesPage() {
+      var enrollmentLoad = typeof loadEnrollmentsWithFallback === "function"
+        ? loadEnrollmentsWithFallback()
+        : Promise.resolve();
+      var trainerLoad = typeof loadTrainerOptionsWithFallback === "function"
+        ? loadTrainerOptionsWithFallback()
+        : Promise.resolve();
+
+      Promise.all([enrollmentLoad, trainerLoad]).then(function () {
+        if (typeof loadClassesWithFallback === "function") {
+          loadClassesWithFallback();
+        } else {
+          renderSchedules();
+        }
+      });
+    }
+
+    startSchedulesPage();
   </script>
+  <script src="js/ui-enhancements.js"></script>
 </body>
 </html>
