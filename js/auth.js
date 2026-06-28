@@ -33,7 +33,7 @@ var PERMISSIONS = {
   admin: {
     label: "Administrator",
     badgeClass: "badge-blue",
-    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance", "polls"],
+    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance", "polls", "whatsapp"],
     manageMembers: true,
     manageTrainers: true,
     manageSchedules: true,
@@ -78,6 +78,7 @@ var NAV_LINKS = [
   { key: "documents", label: "Documents", href: "documents.html" },
   { key: "finance",   label: "Finance",   href: "finance.html" },
   { key: "polls",     label: "Polls",     href: "polls.html" },
+  { key: "whatsapp",  label: "WhatsApp",  href: "whatsapp.html" },
   { key: "profile",   label: "My Profile", href: "profile.html" }
 ];
 

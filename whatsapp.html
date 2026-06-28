@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — WhatsApp Analysis</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("whatsapp");</script>
+</head>
+<body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>WhatsApp Analysis</h1>
+          <p class="subtitle">Import exported group chat .txt files and review activity summaries.</p>
+        </div>
+      </div>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <h2 class="section-heading">Import chat export</h2>
+        <p class="subtitle section-lead">Upload a WhatsApp .txt export file. No WhatsApp API is used.</p>
+        <form id="whatsappImportForm" novalidate enctype="multipart/form-data" style="margin-top:16px;">
+          <div class="field">
+            <label for="waTitle">Import title</label>
+            <input type="text" id="waTitle" placeholder="e.g. Staff group June 2026" />
+          </div>
+          <div class="field">
+            <label for="waDescription">Description</label>
+            <input type="text" id="waDescription" placeholder="Optional notes about this import" />
+          </div>
+          <div class="field">
+            <label for="waFile">WhatsApp .txt export</label>
+            <input type="file" id="waFile" accept=".txt,text/plain" />
+            <span class="field-hint">Plain text export only, max 10 MB</span>
+            <span class="field-error" id="waFileError"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="waImportBtn">Import and analyze</button>
+        </form>
+      </section>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <h2 class="section-heading">Import history</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Imported</th>
+                <th>Status</th>
+                <th>Messages</th>
+                <th>Participants</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="whatsappImportsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="whatsappAnalysisSection" style="display:none;">
+        <div class="stats-grid reveal-group" style="margin-bottom:20px;">
+          <div class="stat-card">
+            <div class="stat-value" id="waTotalMessages">0</div>
+            <div class="stat-label">Total messages</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waUniqueSenders">0</div>
+            <div class="stat-label">Participants</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waPeakHour">—</div>
+            <div class="stat-label">Busiest hour</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waSpamCount">0</div>
+            <div class="stat-label">Spam flagged</div>
+          </div>
+        </div>
+
+        <div class="stats-grid reveal-group" style="margin-bottom:20px;">
+          <div class="stat-card">
+            <div class="stat-value" id="waPositiveCount">0</div>
+            <div class="stat-label">Positive tone</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waNeutralCount">0</div>
+            <div class="stat-label">Neutral tone</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waNegativeCount">0</div>
+            <div class="stat-label">Negative tone</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="waMediaCount">0</div>
+            <div class="stat-label">Media messages</div>
+          </div>
+        </div>
+
+        <section class="card premium-panel" style="margin-bottom:20px;">
+          <h2 class="section-heading">Participant activity</h2>
+          <div id="waParticipantsTable"></div>
+        </section>
+
+        <section class="card premium-panel" style="margin-bottom:20px;">
+          <h2 class="section-heading">Hourly activity</h2>
+          <div id="waHourlyActivity"></div>
+        </section>
+
+        <section class="card premium-panel">
+          <h2 class="section-heading">Parsed messages</h2>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
+            <div class="field" style="flex:1; min-width:160px; margin-bottom:0;">
+              <label for="waMessageSearch">Search</label>
+              <input type="text" id="waMessageSearch" placeholder="Search message text…" />
+            </div>
+            <div class="field" style="min-width:160px; margin-bottom:0;">
+              <label for="waSenderFilter">Participant</label>
+              <select id="waSenderFilter">
+                <option value="">All participants</option>
+              </select>
+            </div>
+            <div class="field" style="min-width:140px; margin-bottom:0;">
+              <label for="waDateFrom">From</label>
+              <input type="date" id="waDateFrom" />
+            </div>
+            <div class="field" style="min-width:140px; margin-bottom:0;">
+              <label for="waDateTo">To</label>
+              <input type="date" id="waDateTo" />
+            </div>
+            <button type="button" class="btn btn-ghost" id="waClearFilters">Clear</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date/time</th>
+                  <th>Participant</th>
+                  <th>Message</th>
+                  <th>Tone</th>
+                  <th>Spam</th>
+                </tr>
+              </thead>
+              <tbody id="whatsappMessagesBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/toast.js"></script>
+  <script src="js/whatsapp.js?v=s3b3"></script>
+  <script>
+    mountSidebar("whatsapp");
+    initWhatsAppPage();
+  </script>
+  <script src="js/ui-enhancements.js"></script>
+</body>
+</html>
