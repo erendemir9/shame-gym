@@ -9,19 +9,126 @@ var MEMBERS_CREATE_API_URL = "api/members/create.php";
 var MEMBERS_UPDATE_API_URL = "api/members/update.php";
 var MEMBERS_DELETE_API_URL = "api/members/delete.php";
 var WORKOUTS_LIST_API_URL = "api/workouts/list.php";
+var TRAINERS_API_URL = "api/trainers/list.php";
 
 // Members currently shown on the page (null until first load finishes).
 var pageMemberList = null;
 var pageWorkoutSummaryByEmail = null;
 var workoutSummariesApiAvailable = false;
+var pageMemberTrainerOptions = null;
+var memberTrainerOptionsApiAvailable = false;
 
 // ---------- API READ HELPERS ----------
+
+function mapApiTrainerToMemberOption(apiTrainer) {
+  return {
+    id: "t" + apiTrainer.id,
+    name: apiTrainer.full_name,
+    email: apiTrainer.email,
+    specialization: apiTrainer.specialization || "",
+    availability: apiTrainer.availability || ""
+  };
+}
+
+function loadMemberTrainerOptionsFromApi() {
+  return fetch(TRAINERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load trainers."
+          };
+        }
+
+        var apiTrainers = data.data && data.data.trainers ? data.data.trainers : [];
+        return {
+          ok: true,
+          trainers: apiTrainers.map(mapApiTrainerToMemberOption)
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function getMemberTrainerOptionsFromLocalStorage() {
+  var options = [];
+  var seen = {};
+
+  function addOption(trainer) {
+    var key = normalizeMemberEmail(trainer.email);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    options.push({
+      id: trainer.id || null,
+      name: trainer.name,
+      email: trainer.email,
+      specialization: trainer.specialization || "",
+      availability: trainer.availability || ""
+    });
+  }
+
+  getTrainers().forEach(addOption);
+  getUsers().forEach(function (user) {
+    if (user.role === "trainer") {
+      addOption({
+        id: user.linkedId || null,
+        name: user.name,
+        email: user.email
+      });
+    }
+  });
+
+  return options;
+}
+
+function loadMemberTrainerOptionsWithFallback() {
+  return loadMemberTrainerOptionsFromApi().then(function (result) {
+    if (result.ok) {
+      pageMemberTrainerOptions = result.trainers;
+      memberTrainerOptionsApiAvailable = true;
+      return true;
+    }
+
+    console.warn("Member trainer options API unavailable:", result.message);
+    pageMemberTrainerOptions = null;
+    memberTrainerOptionsApiAvailable = false;
+    return false;
+  });
+}
+
+function getMemberTrainerOptions() {
+  if (pageMemberTrainerOptions !== null) {
+    return pageMemberTrainerOptions;
+  }
+
+  return getMemberTrainerOptionsFromLocalStorage();
+}
 
 function resolveAssignedTrainerEmail(apiMember) {
   if (!apiMember.assigned_trainer_id) return "";
 
   var trainerKey = "t" + apiMember.assigned_trainer_id;
-  var trainers = getTrainers();
+  var trainers = getMemberTrainerOptions();
 
   for (var i = 0; i < trainers.length; i++) {
     if (trainers[i].id === trainerKey) return trainers[i].email;
@@ -219,8 +326,11 @@ function loadMembersWithFallback() {
   var summaryPromise = isTrainerView()
     ? loadWorkoutSummariesWithFallback()
     : Promise.resolve();
+  var trainerOptionsPromise = canManageMembers()
+    ? loadMemberTrainerOptionsWithFallback()
+    : Promise.resolve();
 
-  return summaryPromise.then(function () {
+  return Promise.all([summaryPromise, trainerOptionsPromise]).then(function () {
     return loadMembersFromApi().then(function (result) {
       if (result.ok) {
         pageMemberList = result.members;
@@ -321,12 +431,24 @@ function resolveTrainerIdFromEmail(trainerEmail) {
   }
 
   var target = normalizeMemberEmail(trainerEmail);
-  var trainers = getTrainers();
+  var trainers = getMemberTrainerOptions();
 
   for (var i = 0; i < trainers.length; i++) {
     if (normalizeMemberEmail(trainers[i].email) === target) {
       var match = String(trainers[i].id).match(/^t(\d+)$/);
       if (match) return parseInt(match[1], 10);
+    }
+  }
+
+  if (memberTrainerOptionsApiAvailable) {
+    return null;
+  }
+
+  var localTrainers = getTrainers();
+  for (var j = 0; j < localTrainers.length; j++) {
+    if (normalizeMemberEmail(localTrainers[j].email) === target) {
+      var localMatch = String(localTrainers[j].id).match(/^t(\d+)$/);
+      if (localMatch) return parseInt(localMatch[1], 10);
     }
   }
 
@@ -552,7 +674,7 @@ function textCell(text) {
 
 function getTrainerLabel(email) {
   if (!email) return "—";
-  var trainers = getTrainers();
+  var trainers = getMemberTrainerOptions();
   for (var i = 0; i < trainers.length; i++) {
     if (normalizeMemberEmail(trainers[i].email) === normalizeMemberEmail(email)) {
       return trainers[i].name;
@@ -587,13 +709,8 @@ function populateAssignedTrainerSelect(selectedEmail) {
     select.appendChild(option);
   }
 
-  getTrainers().forEach(function (trainer) {
+  getMemberTrainerOptions().forEach(function (trainer) {
     addOption(trainer.email, trainer.name + " (" + trainer.email + ")");
-  });
-  getUsers().forEach(function (user) {
-    if (user.role === "trainer") {
-      addOption(user.email, user.name + " (" + user.email + ")");
-    }
   });
 
   if (selectedEmail) select.value = selectedEmail;
@@ -726,9 +843,12 @@ function openMemberModal() {
   document.getElementById("memberForm").reset();
   document.getElementById("mPhoneCountry").value = "US";
   initPhoneField("mPhoneCountry", "mPhone", "mPhoneHint");
-  populateAssignedTrainerSelect("");
   clearAllMemberErrors();
-  document.getElementById("memberModal").classList.add("open");
+
+  loadMemberTrainerOptionsWithFallback().then(function () {
+    populateAssignedTrainerSelect("");
+    document.getElementById("memberModal").classList.add("open");
+  });
 }
 
 function openMemberModalForEdit(member) {
@@ -740,9 +860,12 @@ function openMemberModalForEdit(member) {
   setPhoneFieldValues("mPhoneCountry", "mPhone", "mPhoneHint", member.phone);
   document.getElementById("mType").value = member.type;
   document.getElementById("mStart").value = member.startDate;
-  populateAssignedTrainerSelect(member.assignedTrainerEmail || "");
   clearAllMemberErrors();
-  document.getElementById("memberModal").classList.add("open");
+
+  loadMemberTrainerOptionsWithFallback().then(function () {
+    populateAssignedTrainerSelect(member.assignedTrainerEmail || "");
+    document.getElementById("memberModal").classList.add("open");
+  });
 }
 
 function closeMemberModal() {

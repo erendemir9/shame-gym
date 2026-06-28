@@ -686,13 +686,35 @@ function openRosterModal(item) {
   document.getElementById("rosterModalTitle").textContent = item.className;
   document.getElementById("rosterModalSubtitle").textContent =
     formatDate(item.date) + " at " + item.time + " · with " + item.trainerName;
-  renderRosterList();
-  document.getElementById("rosterModal").classList.add("open");
+
+  function showRosterModal() {
+    renderRosterList();
+    document.getElementById("rosterModal").classList.add("open");
+  }
+
+  if (typeof loadEnrollmentsForClassFromApi !== "function") {
+    showRosterModal();
+    return;
+  }
+
+  loadEnrollmentsForClassFromApi(item.id).then(function () {
+    showRosterModal();
+  }).catch(function () {
+    showRosterModal();
+  });
 }
 
 function closeRosterModal() {
   activeRosterClass = null;
   document.getElementById("rosterModal").classList.remove("open");
+
+  if (typeof loadEnrollmentsWithFallback === "function") {
+    loadEnrollmentsWithFallback().then(function () {
+      if (typeof renderSchedules === "function") {
+        renderSchedules();
+      }
+    });
+  }
 }
 
 function renderRosterList() {
