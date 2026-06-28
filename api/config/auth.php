@@ -4,7 +4,7 @@
  *
  * Login/logout endpoints in api/auth/ use these helpers.
  * The frontend still uses localStorage auth for now; server sessions are
- * ready for migration in a later sprint part.
+ * ready for later improvement.
  */
 
 require_once __DIR__ . '/response.php';
