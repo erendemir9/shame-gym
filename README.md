@@ -351,8 +351,12 @@ chmod 0777 uploads/documents uploads/whatsapp uploads/import
 
 Notes:
 
-- Only `.gitkeep` placeholder files should be committed to version control
-- Uploaded user files must not be committed
+- Three seed demo document files are included in the repository so document download works immediately after setup:
+  - `uploads/documents/doc_001_member_handbook.pdf`
+  - `uploads/documents/doc_002_trainer_safety.pdf`
+  - `uploads/documents/doc_003_finance_template.xlsx`
+- These are safe demo files for testing document download only.
+- Runtime uploaded files must not be committed. `.gitignore` excludes files under `uploads/documents/`, `uploads/whatsapp/`, and `uploads/import/` while allowing these three seed demo documents and `.gitkeep` placeholders.
 - On macOS XAMPP, Apache typically runs as the `daemon` user and needs write permission on these folders
 - Document uploads accept PDF, DOC, DOCX, TXT, PNG, JPG, and JPEG (max 10 MB)
 - WhatsApp imports accept `.txt` export files only (max 10 MB)
@@ -413,6 +417,8 @@ Notes:
 | `poll_options` | Poll answer choices |
 | `votes` | Anonymous ballot selections (`anonymous_vote_token`; no `user_id`) |
 | `vote_receipts` | Duplicate-vote prevention only |
+
+Poll result CSV exports (admin) set `generated_at` in **Europe/Berlin** local time. In summer this appears as **CEST**; in winter as **CET**. The export contains aggregate counts and percentages only. It does not expose voter identity, voter email, anonymous vote tokens, or receipt data.
 
 ### WhatsApp analysis
 
@@ -700,7 +706,7 @@ Passwords match `database/seed.sql`.
 - [ ] Preview `sample_data/legacy_members_validation_sample.csv` and confirm invalid/duplicate rows are reported
 - [ ] Run legacy import on the validation sample and confirm valid rows insert into `members` while errors log to `import_errors`
 - [ ] Preview and import `sample_data/legacy_members_4000_sample.csv`, verify 4000 members inserted and no `users` accounts created for `legacy.member*@example.com`
-- [ ] Export poll results CSV as admin and confirm no voter identity or vote tokens appear
+- [ ] Export poll results CSV as admin and confirm no voter identity or vote tokens appear; confirm `generated_at` uses Europe/Berlin time (CEST or CET)
 - [ ] Confirm member receives HTTP 403 on finance, WhatsApp, and legacy import APIs
 - [ ] Confirm trainer/member can access documents and polls according to role rules
 
@@ -719,7 +725,7 @@ Passwords match `database/seed.sql`.
 | File uploads | Extension and MIME validation, size limits, safe stored filenames, no path traversal |
 | Confidential voting | `votes` stores anonymous tokens only; `vote_receipts` prevents duplicates without revealing choices |
 | Admin-only modules | Finance, WhatsApp, and legacy import endpoints require `requireRole('admin')` |
-| Poll results export | CSV includes counts and percentages only; no `user_id`, email, or `anonymous_vote_token` |
+| Poll results export | CSV includes counts and percentages only; `generated_at` in Europe/Berlin (CEST/CET); no `user_id`, email, or `anonymous_vote_token` |
 | Legacy import scope | Inserts member records only; does not create login accounts in `users` |
 | WhatsApp scope | Import-only from exported `.txt` files; no WhatsApp API integration |
 
@@ -760,7 +766,7 @@ shame-gym/
     legacy_members_validation_sample.csv      Mixed valid/invalid demo rows
 
   uploads/
-    documents/            Uploaded document files (.gitkeep only in repo)
+    documents/            Seed demo PDFs/XLSX plus runtime uploads (see Upload directory setup)
     whatsapp/             Stored WhatsApp export files (.gitkeep only in repo)
     import/               Stored legacy CSV import files (.gitkeep only in repo)
 
