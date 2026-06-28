@@ -43,6 +43,7 @@ body.motion-ready .page-header.reveal {
     transform var(--motion-duration) var(--motion-ease),
     filter var(--motion-duration) var(--motion-ease);
   filter: blur(4px);
+  overflow: visible;
 }
 .reveal.is-visible {
   filter: blur(0);

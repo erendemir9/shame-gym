@@ -93,11 +93,14 @@ body {
   background-attachment: fixed;
   min-height: 100vh;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 html {
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 h1, h2, h3, h4 {
@@ -127,6 +130,7 @@ summary:focus-visible,
 .app {
   display: flex;
   min-height: 100vh;
+  overflow: visible;
 }
 
 .sidebar {
@@ -231,6 +235,7 @@ summary:focus-visible,
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  overflow: visible;
 }
 
 /* Page header: title on the left, optional action button on the right. */
@@ -455,10 +460,12 @@ summary:focus-visible,
   border-radius: var(--radius-card);
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .table-wrap--scroll {
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -524,13 +531,23 @@ tbody tr:hover { background-color: var(--bg-hover); } /* row hover */
 
 /* Coloured membership / specialization badges. */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  width: fit-content;
   padding: 4px 11px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.03em;
   border: 1px solid transparent;
+  vertical-align: middle;
+}
+
+.table-wrap td:has(> .badge) {
+  white-space: nowrap;
+  width: 1%;
 }
 .badge-silver { color: var(--silver); background: rgba(199,204,212,0.12); border-color: rgba(199,204,212,0.25); }
 .badge-blue   { color: #9DB4FF;     background: rgba(46,91,255,0.15);   border-color: rgba(46,91,255,0.4); }

@@ -166,7 +166,8 @@ body.sidebar-open .sidebar-overlay { display: block; }
 
 .premium-panel {
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 .premium-panel::before {
   content: "";
@@ -266,6 +267,7 @@ body.sidebar-open .sidebar-overlay { display: block; }
   border-radius: var(--radius-lg);
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: hidden;
 }
 thead th {
   position: sticky;

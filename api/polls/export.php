@@ -33,7 +33,8 @@ try {
     }
 
     $results = fetchPollResults($pdo, $pollId);
-    $generatedAt = gmdate('Y-m-d H:i:s') . ' UTC';
+    $berlinTime = new DateTime('now', new DateTimeZone('Europe/Berlin'));
+    $generatedAt = $berlinTime->format('Y-m-d H:i:s') . ' ' . $berlinTime->format('T');
     $question = (string) $pollRow['question'];
     $totalVotes = (int) $results['total_votes'];
 
