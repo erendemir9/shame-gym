@@ -1,9 +1,9 @@
 /* ============================================================
    auth.js — authentication + role-based access.
-   Login, logout, and activation use PHP endpoints (api/auth/*).
-   A small localStorage session cache keeps existing pages working.
-   Demo user records in localStorage remain for member/trainer sync
-   until those modules are migrated to the database later.
+   Login, logout, activation, and session validation use PHP
+   (api/auth/*). A localStorage session cache mirrors the server
+   user for page guards; shame_users seed data is kept for
+   emergency fallback and legacy sync helpers only.
    ============================================================ */
 
 var USERS_KEY = "shame_users";

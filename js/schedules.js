@@ -2,7 +2,7 @@
    schedules.js — class schedule management (IAP-43).
    Read/list view loads from api/classes/list.php with localStorage fallback.
    Create/update/delete use PHP APIs with localStorage emergency fallback.
-   Enrollments still use localStorage until later parts.
+   Enrollments load from api/enrollments/* with the same fallback pattern.
    ============================================================ */
 
 var CLASSES_API_URL = "api/classes/list.php";
