@@ -9,9 +9,13 @@ var CLASSES_API_URL = "api/classes/list.php";
 var CLASSES_CREATE_API_URL = "api/classes/create.php";
 var CLASSES_UPDATE_API_URL = "api/classes/update.php";
 var CLASSES_DELETE_API_URL = "api/classes/delete.php";
+var TRAINERS_API_URL = "api/trainers/list.php";
 
 // Classes currently shown on the page (null until first load finishes).
 var pageClassList = null;
+
+// Trainer options for the class form (null until first load finishes).
+var pageTrainerOptionsList = null;
 
 // ---------- API READ HELPERS ----------
 
@@ -95,6 +99,77 @@ function refreshSchedulesFromLocalStorage() {
   renderSchedules();
 }
 
+// ---------- TRAINER OPTIONS FOR CLASS FORM ----------
+
+function mapApiTrainerToScheduleOption(apiTrainer) {
+  return {
+    id: "t" + apiTrainer.id,
+    name: apiTrainer.full_name,
+    email: apiTrainer.email,
+    specialization: apiTrainer.specialization || "",
+    availability: apiTrainer.availability || ""
+  };
+}
+
+function loadTrainerOptionsFromApi() {
+  return fetch(TRAINERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load trainers."
+          };
+        }
+
+        var apiTrainers = data.data && data.data.trainers ? data.data.trainers : [];
+        var trainerOptions = apiTrainers.map(mapApiTrainerToScheduleOption);
+
+        return {
+          ok: true,
+          trainers: trainerOptions
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadTrainerOptionsWithFallback() {
+  return loadTrainerOptionsFromApi().then(function (result) {
+    if (result.ok) {
+      pageTrainerOptionsList = result.trainers;
+      return result;
+    }
+
+    console.warn("Trainers API unavailable for schedule dropdown:", result.message);
+    pageTrainerOptionsList = getTrainers();
+    return result;
+  });
+}
+
+function getScheduleTrainerOptions() {
+  return pageTrainerOptionsList !== null ? pageTrainerOptionsList : getTrainers();
+}
+
 // ---------- API WRITE HELPERS ----------
 
 function resolveTrainerIdFromName(trainerName) {
@@ -102,7 +177,7 @@ function resolveTrainerIdFromName(trainerName) {
     return null;
   }
 
-  var trainers = getTrainers();
+  var trainers = getScheduleTrainerOptions();
   for (var i = 0; i < trainers.length; i++) {
     if (trainers[i].name === trainerName) {
       var match = String(trainers[i].id).match(/^t(\d+)$/);
@@ -387,17 +462,33 @@ function getSchedulesForView() {
 var editingClassId = null;
 var activeRosterClass = null;
 
-function populateTrainerSelect() {
+function populateTrainerSelect(selectedTrainerName) {
   var select = document.getElementById("cTrainer");
-  var trainers = getTrainers();
+  if (!select) return;
+
+  var trainerOptions = getScheduleTrainerOptions();
   select.innerHTML = '<option value="">Select a trainer…</option>';
 
-  trainers.forEach(function (trainer) {
+  var seenNames = {};
+
+  trainerOptions.forEach(function (trainer) {
+    seenNames[trainer.name] = true;
     var option = document.createElement("option");
     option.value = trainer.name;
-    option.textContent = trainer.name + " (" + trainer.specialization + ")";
+    option.textContent = trainer.name + " (" + (trainer.specialization || "Trainer") + ")";
     select.appendChild(option);
   });
+
+  if (selectedTrainerName && !seenNames[selectedTrainerName]) {
+    var currentOption = document.createElement("option");
+    currentOption.value = selectedTrainerName;
+    currentOption.textContent = selectedTrainerName + " (current)";
+    select.appendChild(currentOption);
+  }
+
+  if (selectedTrainerName) {
+    select.value = selectedTrainerName;
+  }
 }
 
 function textCell(text) {
@@ -690,8 +781,7 @@ function openClassModalForEdit(item) {
   editingClassId = item.id;
   document.getElementById("classModalTitle").textContent = "Edit class";
   document.getElementById("cName").value = item.className;
-  populateTrainerSelect();
-  document.getElementById("cTrainer").value = item.trainerName;
+  populateTrainerSelect(item.trainerName);
   document.getElementById("cDate").value = item.date;
   document.getElementById("cTime").value = item.time;
   document.getElementById("cDuration").value = item.duration;
