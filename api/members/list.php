@@ -52,7 +52,14 @@ try {
     }
 
     $statusFilter = getQueryString('status');
-    if ($statusFilter !== null) {
+    if ($statusFilter === null) {
+        $sql .= ' AND m.status = :status';
+        $params['status'] = 'active';
+    } elseif ($statusFilter === 'all') {
+        if ($role !== 'admin') {
+            errorResponse('You do not have permission to view all member statuses.', 403);
+        }
+    } else {
         $allowedStatuses = ['active', 'inactive', 'suspended'];
         if (!in_array($statusFilter, $allowedStatuses, true)) {
             errorResponse('Invalid status filter.', 400);

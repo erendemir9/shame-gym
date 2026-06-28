@@ -1,10 +1,12 @@
 /* ============================================================
    members.js — member management (IAP-38 register).
    Read/list view loads from api/members/list.php with localStorage fallback.
-   Add/edit/delete still use localStorage until write APIs are added later.
+   Delete uses api/members/delete.php (admin soft delete).
+   Add/edit still use localStorage until write APIs are added later.
    ============================================================ */
 
 var MEMBERS_API_URL = "api/members/list.php";
+var MEMBERS_DELETE_API_URL = "api/members/delete.php";
 
 // Members currently shown on the page (null until first load finishes).
 var pageMemberList = null;
@@ -109,6 +111,74 @@ function loadMembersWithFallback() {
 function refreshMembersFromLocalStorage() {
   pageMemberList = getMembers();
   renderMembers();
+}
+
+function deleteMemberFromApi(memberId) {
+  return fetch(MEMBERS_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: memberId })
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not delete member."
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Member deleted successfully"
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function handleDeleteMember(member) {
+  deleteMemberFromApi(member.id).then(function (result) {
+    if (result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "success");
+      }
+      loadMembersWithFallback();
+      return;
+    }
+
+    console.warn("Member delete failed:", result.message);
+    if (typeof showToast === "function") {
+      showToast(result.message, "error");
+    }
+  });
+}
+
+function confirmDeleteMember(member) {
+  if (!confirm("Are you sure you want to deactivate this member?")) {
+    return;
+  }
+
+  handleDeleteMember(member);
 }
 
 // ---------- SMALL SHARED FORM HELPERS ----------
@@ -297,6 +367,14 @@ function renderMemberRow(member) {
       openMemberModalForEdit(member);
     });
     actionsTd.appendChild(editBtn);
+
+    var deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-ghost btn-sm";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", function () {
+      confirmDeleteMember(member);
+    });
+    actionsTd.appendChild(deleteBtn);
     tr.appendChild(actionsTd);
   }
 
