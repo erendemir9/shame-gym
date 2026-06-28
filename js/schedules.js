@@ -463,9 +463,25 @@ function renderScheduleRow(item) {
       unenrollBtn.className = "btn btn-ghost btn-sm";
       unenrollBtn.textContent = "Unenroll";
       unenrollBtn.addEventListener("click", function () {
-        unenrollFromClass(item.id, session.email);
-        renderSchedules();
-        showToast("Removed from " + item.className, "info");
+        unenrollFromClass(item.id, session.email).then(function (result) {
+          if (!result.ok) {
+            if (typeof showToast === "function") {
+              showToast(result.message || "Could not unenroll", "error");
+            }
+            return;
+          }
+
+          if (result.localOnly) {
+            if (typeof showToast === "function") {
+              showToast(result.message, "info");
+            }
+            return;
+          }
+
+          if (typeof showToast === "function") {
+            showToast(result.message || ("Removed from " + item.className), "success");
+          }
+        });
       });
       actionsTd.appendChild(unenrollBtn);
     } else if (enrolled >= item.capacity) {
@@ -478,13 +494,27 @@ function renderScheduleRow(item) {
       enrollBtn.className = "btn btn-primary btn-sm";
       enrollBtn.textContent = "Enroll";
       enrollBtn.addEventListener("click", function () {
-        var result = enrollInClass(item.id, session.email);
-        if (!result.ok) {
-          showToast(result.reason === "full" ? "Class is full" : "Could not enroll", "error");
-          return;
-        }
-        renderSchedules();
-        showToast("Enrolled in " + item.className, "success");
+        enrollInClass(item.id, session.email).then(function (result) {
+          if (!result.ok) {
+            var errorMessage = result.message ||
+              (result.reason === "full" ? "Class is full" : "Could not enroll");
+            if (typeof showToast === "function") {
+              showToast(errorMessage, "error");
+            }
+            return;
+          }
+
+          if (result.localOnly) {
+            if (typeof showToast === "function") {
+              showToast(result.message, "info");
+            }
+            return;
+          }
+
+          if (typeof showToast === "function") {
+            showToast(result.message || ("Enrolled in " + item.className), "success");
+          }
+        });
       });
       actionsTd.appendChild(enrollBtn);
     }
@@ -624,10 +654,27 @@ function renderRosterList() {
 function removeRosterMember(classItem, memberEmail, memberName) {
   if (!confirm("Remove " + memberName + " from " + classItem.className + "?")) return;
 
-  unenrollFromClass(classItem.id, memberEmail);
-  renderRosterList();
-  renderSchedules();
-  showToast("Member removed from class", "info");
+  unenrollFromClass(classItem.id, memberEmail).then(function (result) {
+    if (!result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message || "Could not remove member", "error");
+      }
+      return;
+    }
+
+    renderRosterList();
+
+    if (result.localOnly) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(result.message || "Member removed from class", "success");
+    }
+  });
 }
 
 function openClassModal() {

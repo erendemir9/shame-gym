@@ -85,6 +85,23 @@ try {
         }
     }
 
+    $statusFilter = getQueryString('status');
+    if ($statusFilter === null) {
+        $sql .= ' AND e.status = :status';
+        $params['status'] = 'enrolled';
+    } elseif ($statusFilter === 'all') {
+        if ($role !== 'admin') {
+            errorResponse('You do not have permission to view all enrollment statuses.', 403);
+        }
+    } else {
+        $allowedStatuses = ['enrolled', 'cancelled', 'attended'];
+        if (!in_array($statusFilter, $allowedStatuses, true)) {
+            errorResponse('Invalid status filter.', 400);
+        }
+        $sql .= ' AND e.status = :status';
+        $params['status'] = $statusFilter;
+    }
+
     $sql .= ' ORDER BY e.enrolled_at DESC';
 
     $stmt = $pdo->prepare($sql);
