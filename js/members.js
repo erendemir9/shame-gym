@@ -1,9 +1,115 @@
 /* ============================================================
    members.js — member management (IAP-38 register).
-   Pattern reused on every list page:
-     renderMembers()  -> draw the table from the saved array
-     validate -> save -> re-render -> showToast
+   Read/list view loads from api/members/list.php with localStorage fallback.
+   Add/edit/delete still use localStorage until write APIs are added later.
    ============================================================ */
+
+var MEMBERS_API_URL = "api/members/list.php";
+
+// Members currently shown on the page (null until first load finishes).
+var pageMemberList = null;
+
+// ---------- API READ HELPERS ----------
+
+function resolveAssignedTrainerEmail(apiMember) {
+  if (!apiMember.assigned_trainer_id) return "";
+
+  var trainerKey = "t" + apiMember.assigned_trainer_id;
+  var trainers = getTrainers();
+
+  for (var i = 0; i < trainers.length; i++) {
+    if (trainers[i].id === trainerKey) return trainers[i].email;
+  }
+
+  if (apiMember.assigned_trainer_name) {
+    for (var j = 0; j < trainers.length; j++) {
+      if (trainers[j].name === apiMember.assigned_trainer_name) {
+        return trainers[j].email;
+      }
+    }
+  }
+
+  return "";
+}
+
+function mapApiMemberToFrontendMember(apiMember) {
+  return {
+    id: "m" + apiMember.id,
+    name: apiMember.full_name,
+    email: apiMember.email,
+    phone: apiMember.phone || "",
+    type: apiMember.membership_type,
+    startDate: apiMember.start_date || "",
+    assignedTrainerEmail: resolveAssignedTrainerEmail(apiMember),
+    assignedTrainerName: apiMember.assigned_trainer_name || ""
+  };
+}
+
+function loadMembersFromApi() {
+  return fetch(MEMBERS_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load members."
+          };
+        }
+
+        var apiMembers = data.data && data.data.members ? data.data.members : [];
+        var mappedMembers = apiMembers.map(mapApiMemberToFrontendMember);
+
+        return {
+          ok: true,
+          members: mappedMembers
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadMembersWithFallback() {
+  return loadMembersFromApi().then(function (result) {
+    if (result.ok) {
+      pageMemberList = result.members;
+      renderMembers();
+      return;
+    }
+
+    console.warn("Members API unavailable:", result.message);
+    pageMemberList = getMembers();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load members from server. Showing saved local data.", "info");
+    }
+
+    renderMembers();
+  });
+}
+
+function refreshMembersFromLocalStorage() {
+  pageMemberList = getMembers();
+  renderMembers();
+}
 
 // ---------- SMALL SHARED FORM HELPERS ----------
 
@@ -65,7 +171,7 @@ function normalizeMemberEmail(email) {
 }
 
 function getMembersForView() {
-  var members = getMembers();
+  var members = pageMemberList !== null ? pageMemberList : getMembers();
   if (!isTrainerView()) return members;
 
   var session = getSession();
@@ -97,6 +203,15 @@ function getTrainerLabel(email) {
   }
   var user = findUserByEmail(email);
   return user ? user.name : email;
+}
+
+function getAssignedTrainerLabel(member) {
+  if (member.assignedTrainerEmail) {
+    var label = getTrainerLabel(member.assignedTrainerEmail);
+    if (label && label !== "—") return label;
+  }
+  if (member.assignedTrainerName) return member.assignedTrainerName;
+  return "—";
 }
 
 function populateAssignedTrainerSelect(selectedEmail) {
@@ -170,7 +285,7 @@ function renderMemberRow(member) {
   accountTd.appendChild(statusBadge);
   tr.appendChild(accountTd);
 
-  tr.appendChild(textCell(getTrainerLabel(member.assignedTrainerEmail)));
+  tr.appendChild(textCell(getAssignedTrainerLabel(member)));
 
   if (canManageMembers()) {
     var actionsTd = document.createElement("td");
@@ -354,7 +469,7 @@ function saveMember() {
     }
     saveMembers(members);
     closeMemberModal();
-    renderMembers();
+    refreshMembersFromLocalStorage();
     showToast("Member updated successfully", "success");
   } else {
     data.id = generateId();
@@ -362,7 +477,7 @@ function saveMember() {
     saveMembers(members);
     createPendingUser(data.email, data.name, "member", data.id);
     closeMemberModal();
-    renderMembers();
+    refreshMembersFromLocalStorage();
     showToast("Member added. They can activate their account from the login page.", "success");
   }
 }
