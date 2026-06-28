@@ -33,32 +33,38 @@ var PERMISSIONS = {
   admin: {
     label: "Administrator",
     badgeClass: "badge-blue",
-    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings"],
+    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance"],
     manageMembers: true,
     manageTrainers: true,
     manageSchedules: true,
     manageWorkouts: true,
-    manageMeetings: true
+    manageMeetings: true,
+    manageDocuments: true,
+    manageFinance: true
   },
   trainer: {
     label: "Trainer",
     badgeClass: "badge-silver",
-    nav: ["dashboard", "members", "schedules", "workouts"],
+    nav: ["dashboard", "members", "schedules", "workouts", "documents"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
     manageWorkouts: true,
-    manageMeetings: false
+    manageMeetings: false,
+    manageDocuments: false,
+    manageFinance: false
   },
   member: {
     label: "Member",
     badgeClass: "badge-purple",
-    nav: ["dashboard", "schedules", "workouts", "profile"],
+    nav: ["dashboard", "schedules", "workouts", "documents", "profile"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
     manageWorkouts: false,
-    manageMeetings: false
+    manageMeetings: false,
+    manageDocuments: false,
+    manageFinance: false
   }
 };
 
@@ -69,6 +75,8 @@ var NAV_LINKS = [
   { key: "schedules", label: "Schedules", href: "schedules.html" },
   { key: "workouts",  label: "Workouts",  href: "workouts.html" },
   { key: "meetings",  label: "Meetings",  href: "meetings.html" },
+  { key: "documents", label: "Documents", href: "documents.html" },
+  { key: "finance",   label: "Finance",   href: "finance.html" },
   { key: "profile",   label: "My Profile", href: "profile.html" }
 ];
 
@@ -541,6 +549,8 @@ function canManageTrainers() { return can("manageTrainers"); }
 function canManageSchedules() { return can("manageSchedules"); }
 function canManageWorkouts() { return can("manageWorkouts"); }
 function canManageMeetings() { return can("manageMeetings"); }
+function canManageDocuments() { return can("manageDocuments"); }
+function canManageFinance() { return can("manageFinance"); }
 
 function getVisibleNavLinks(role) {
   var allowed = PERMISSIONS[role] ? PERMISSIONS[role].nav : [];

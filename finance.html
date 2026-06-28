@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Finance</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("finance");</script>
+</head>
+<body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Finance</h1>
+          <p class="subtitle">Track income, expenses, and organization balance.</p>
+        </div>
+        <button class="btn btn-primary" id="addFinanceBtn">+ Add transaction</button>
+      </div>
+
+      <div class="stats-grid reveal-group" style="margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-value" id="financeIncome">$0.00</div>
+          <div class="stat-label">Total income</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="financeExpenses">$0.00</div>
+          <div class="stat-label">Total expenses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="financeBalance">$0.00</div>
+          <div class="stat-label">Balance</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="financeCount">0</div>
+          <div class="stat-label">Transactions</div>
+        </div>
+      </div>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="field" style="flex:1; min-width:160px; margin-bottom:0;">
+            <label for="financeSearch">Search</label>
+            <input type="text" id="financeSearch" placeholder="Category or description…" />
+          </div>
+          <div class="field" style="min-width:140px; margin-bottom:0;">
+            <label for="financeTypeFilter">Type</label>
+            <select id="financeTypeFilter">
+              <option value="">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:140px; margin-bottom:0;">
+            <label for="financeCategoryFilter">Category</label>
+            <select id="financeCategoryFilter">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <div class="field" style="min-width:140px; margin-bottom:0;">
+            <label for="financeDateFrom">From</label>
+            <input type="date" id="financeDateFrom" />
+          </div>
+          <div class="field" style="min-width:140px; margin-bottom:0;">
+            <label for="financeDateTo">To</label>
+            <input type="date" id="financeDateTo" />
+          </div>
+          <button type="button" class="btn btn-ghost" id="financeClearFilters">Clear</button>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="financeBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="financeModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="financeModalTitle">
+      <div class="modal-head">
+        <h2 id="financeModalTitle">Add transaction</h2>
+        <button class="modal-close" id="financeModalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <form id="financeForm" novalidate>
+        <div class="field">
+          <label for="finDate">Date</label>
+          <input type="date" id="finDate" />
+          <span class="field-error" id="finDateError"></span>
+        </div>
+        <div class="field">
+          <label for="finType">Type</label>
+          <select id="finType">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="finCategory">Category</label>
+          <input type="text" id="finCategory" placeholder="e.g. Membership" />
+          <span class="field-error" id="finCategoryError"></span>
+        </div>
+        <div class="field">
+          <label for="finAmount">Amount</label>
+          <input type="number" id="finAmount" min="0.01" step="0.01" placeholder="0.00" />
+          <span class="field-error" id="finAmountError"></span>
+        </div>
+        <div class="field">
+          <label for="finDescription">Description</label>
+          <input type="text" id="finDescription" placeholder="Optional notes…" />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="financeCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/toast.js"></script>
+  <script src="js/finance.js?v=s3b1"></script>
+  <script>
+    mountSidebar("finance");
+    initFinancePage();
+  </script>
+  <script src="js/ui-enhancements.js"></script>
+</body>
+</html>
