@@ -9,6 +9,17 @@
 var WORKOUT_PLANS_KEY = "shame_workout_plans";
 var WORKOUT_PROGRESS_KEY = "shame_workout_progress";
 
+var WORKOUTS_LIST_API_URL = "api/workouts/list.php";
+var WORKOUTS_CREATE_API_URL = "api/workouts/create.php";
+var WORKOUTS_UPDATE_API_URL = "api/workouts/update.php";
+var WORKOUTS_DELETE_API_URL = "api/workouts/delete.php";
+var WORKOUTS_PROGRESS_API_URL = "api/workouts/progress.php";
+var MEMBERS_LIST_API_URL = "api/members/list.php";
+
+var pageWorkoutList = null;
+var workoutsApiAvailable = false;
+var workoutMemberOptions = null;
+
 var SEED_WORKOUT_PLANS = [
   {
     id: "wp1",
@@ -59,11 +70,248 @@ function seedWorkoutsIfEmpty() {
   }
 }
 
+function parseWorkoutApiResponse(response) {
+  return response.text().then(function (text) {
+    var data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      return {
+        ok: false,
+        message: "Invalid server response."
+      };
+    }
+
+    if (!response.ok || !data.success) {
+      return {
+        ok: false,
+        message: data.message || "Request failed."
+      };
+    }
+
+    return {
+      ok: true,
+      data: data.data || {},
+      message: data.message || "Success"
+    };
+  });
+}
+
+function mapApiWorkoutToFrontend(apiPlan) {
+  return {
+    id: apiPlan.frontend_id || ("wp" + apiPlan.id),
+    apiId: apiPlan.id,
+    memberEmail: apiPlan.member_email,
+    memberId: apiPlan.member_id,
+    planName: apiPlan.plan_name,
+    trainerName: apiPlan.trainer_name,
+    notes: apiPlan.notes || "",
+    days: apiPlan.days || [],
+    completedDays: apiPlan.completed_days || []
+  };
+}
+
+function loadWorkoutsFromApi() {
+  return fetch(WORKOUTS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseWorkoutApiResponse)
+    .then(function (result) {
+      if (!result.ok) return result;
+
+      var apiPlans = result.data.workout_plans || [];
+      return {
+        ok: true,
+        plans: apiPlans.map(mapApiWorkoutToFrontend)
+      };
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadWorkoutsWithFallback() {
+  return loadWorkoutsFromApi().then(function (result) {
+    if (result.ok) {
+      pageWorkoutList = result.plans;
+      workoutsApiAvailable = true;
+      return true;
+    }
+
+    console.warn("Workouts API unavailable:", result.message);
+    pageWorkoutList = null;
+    workoutsApiAvailable = false;
+    seedWorkoutsIfEmpty();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load workouts from server. Showing saved local data.", "info");
+    }
+
+    return false;
+  });
+}
+
+function loadWorkoutMemberOptionsFromApi() {
+  return fetch(MEMBERS_LIST_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(parseWorkoutApiResponse)
+    .then(function (result) {
+      if (!result.ok) return result;
+
+      var options = [];
+      (result.data.members || []).forEach(function (member) {
+        options.push({
+          email: member.email,
+          name: member.full_name
+        });
+      });
+
+      return {
+        ok: true,
+        options: options
+      };
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function createWorkoutWithApi(planData) {
+  return fetch(WORKOUTS_CREATE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      member_email: planData.memberEmail,
+      plan_name: planData.planName,
+      notes: planData.notes,
+      plan_details: { days: planData.days }
+    })
+  })
+    .then(parseWorkoutApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function updateWorkoutWithApi(planData) {
+  return fetch(WORKOUTS_UPDATE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: planData.apiId || planData.id,
+      member_email: planData.memberEmail,
+      plan_name: planData.planName,
+      notes: planData.notes,
+      plan_details: { days: planData.days }
+    })
+  })
+    .then(parseWorkoutApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function deleteWorkoutWithApi(plan) {
+  return fetch(WORKOUTS_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: plan.apiId || plan.id
+    })
+  })
+    .then(parseWorkoutApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function saveWorkoutProgressWithApi(plan, dayLabel, isCompleted) {
+  return fetch(WORKOUTS_PROGRESS_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      workout_plan_id: plan.apiId || plan.id,
+      progress_key: dayLabel,
+      is_completed: isCompleted ? 1 : 0
+    })
+  })
+    .then(parseWorkoutApiResponse)
+    .catch(function () {
+      return { ok: false, message: "Network error." };
+    });
+}
+
+function saveWorkoutWithApi(planData, isEdit) {
+  var apiCall = isEdit ? updateWorkoutWithApi(planData) : createWorkoutWithApi(planData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return loadWorkoutsWithFallback().then(function () {
+        return { ok: true, usedFallback: false };
+      });
+    }
+
+    if (result.message === "Network error.") {
+      return {
+        ok: false,
+        usedFallback: true,
+        message: "Server unavailable. Workout saved locally only."
+      };
+    }
+
+    return {
+      ok: false,
+      usedFallback: false,
+      message: result.message || "Could not save workout plan."
+    };
+  });
+}
+
+function saveWorkoutLocally(planData, isEdit) {
+  var plans = getWorkoutPlans();
+  var replaced = false;
+
+  for (var i = 0; i < plans.length; i++) {
+    if (plans[i].id === planData.id) {
+      plans[i] = planData;
+      replaced = true;
+      break;
+    }
+  }
+
+  if (!replaced) {
+    plans = plans.filter(function (p) {
+      return normalizeWorkoutEmail(p.memberEmail) !== normalizeWorkoutEmail(planData.memberEmail);
+    });
+    plans.push(planData);
+  }
+
+  saveWorkoutPlans(plans);
+  if (pageWorkoutList !== null) {
+    pageWorkoutList = plans.slice();
+  }
+}
+
 function normalizeWorkoutEmail(email) {
   return email ? email.trim().toLowerCase() : "";
 }
 
 function getWorkoutPlans() {
+  if (pageWorkoutList !== null) return pageWorkoutList;
   if (typeof readList === "function") return readList(WORKOUT_PLANS_KEY);
   var raw = localStorage.getItem(WORKOUT_PLANS_KEY);
   return raw ? JSON.parse(raw) : [];
@@ -117,15 +365,26 @@ function getProgressMap() {
 }
 
 function getCompletedDays(planId) {
+  var plan = getPlanById(planId);
+  if (plan && plan.completedDays) return plan.completedDays.slice();
+
   var map = getProgressMap();
   return map[planId] || [];
 }
 
 function isDayComplete(planId, dayIndex) {
-  return getCompletedDays(planId).indexOf(dayIndex) !== -1;
+  var plan = getPlanById(planId);
+  if (!plan || !plan.days[dayIndex]) return false;
+
+  var completed = getCompletedDays(planId);
+  if (workoutsApiAvailable) {
+    return completed.indexOf(plan.days[dayIndex].day) !== -1;
+  }
+
+  return completed.indexOf(dayIndex) !== -1;
 }
 
-function toggleDayComplete(planId, dayIndex) {
+function toggleDayCompleteLocal(planId, dayIndex) {
   var map = getProgressMap();
   var days = map[planId] || [];
   var pos = days.indexOf(dayIndex);
@@ -139,6 +398,35 @@ function toggleDayComplete(planId, dayIndex) {
   map[planId] = days;
   localStorage.setItem(WORKOUT_PROGRESS_KEY, JSON.stringify(map));
   return pos === -1;
+}
+
+function toggleDayComplete(planId, dayIndex) {
+  var plan = getPlanById(planId);
+  if (!plan || !plan.days[dayIndex]) return false;
+
+  var dayLabel = plan.days[dayIndex].day;
+  var currentlyComplete = isDayComplete(planId, dayIndex);
+  var targetComplete = !currentlyComplete;
+
+  if (workoutsApiAvailable) {
+    return saveWorkoutProgressWithApi(plan, dayLabel, targetComplete).then(function (result) {
+      if (result.ok) {
+        plan.completedDays = result.data.completed_days || [];
+        return targetComplete;
+      }
+
+      if (result.message === "Network error." && typeof showToast === "function") {
+        showToast("Server unavailable. Workout saved locally only.", "info");
+      } else if (typeof showToast === "function") {
+        showToast(result.message || "Could not update workout progress.", "error");
+        return currentlyComplete;
+      }
+
+      return toggleDayCompleteLocal(planId, dayIndex);
+    });
+  }
+
+  return Promise.resolve(toggleDayCompleteLocal(planId, dayIndex));
 }
 
 // ---------- SHARED FORM HELPERS ----------
@@ -259,12 +547,13 @@ function renderDayCard(plan, dayIndex) {
   btn.className = "btn btn-block " + (done ? "btn-ghost" : "btn-primary");
   btn.innerHTML = done ? "✓ Completed" : "Mark workout as complete";
   btn.addEventListener("click", function () {
-    var nowDone = toggleDayComplete(plan.id, dayIndex);
-    showToast(
-      nowDone ? day.day + " workout marked complete" : day.day + " marked incomplete",
-      nowDone ? "success" : "info"
-    );
-    renderWorkoutProgram();
+    toggleDayComplete(plan.id, dayIndex).then(function (nowDone) {
+      showToast(
+        nowDone ? day.day + " workout marked complete" : day.day + " marked incomplete",
+        nowDone ? "success" : "info"
+      );
+      renderWorkoutProgram();
+    });
   });
   card.appendChild(btn);
 
@@ -380,6 +669,27 @@ function renderPlanRow(plan) {
     deleteBtn.className = "btn btn-ghost btn-sm";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", function () {
+      if (workoutsApiAvailable) {
+        deleteWorkoutWithApi(plan).then(function (result) {
+          if (result.ok) {
+            return loadWorkoutsWithFallback().then(function () {
+              renderWorkoutPlansList();
+              showToast("Workout plan deleted", "info");
+            });
+          }
+
+          if (result.message === "Network error.") {
+            deletePlan(plan.id);
+            renderWorkoutPlansList();
+            showToast("Server unavailable. Workout saved locally only.", "info");
+            return;
+          }
+
+          showToast(result.message || "Could not delete workout plan.", "error");
+        });
+        return;
+      }
+
       deletePlan(plan.id);
       renderWorkoutPlansList();
       showToast("Workout plan deleted", "info");
@@ -441,14 +751,31 @@ function populateMemberSelect(selectedEmail) {
   var select = document.getElementById("pMember");
   select.innerHTML = '<option value="">Select a member…</option>';
 
-  getMemberOptions().forEach(function (member) {
-    var option = document.createElement("option");
-    option.value = member.email;
-    option.textContent = member.name + " (" + member.email + ")";
-    select.appendChild(option);
-  });
+  function fillOptions(options) {
+    options.forEach(function (member) {
+      var option = document.createElement("option");
+      option.value = member.email;
+      option.textContent = member.name + " (" + member.email + ")";
+      select.appendChild(option);
+    });
 
-  if (selectedEmail) select.value = selectedEmail;
+    if (selectedEmail) select.value = selectedEmail;
+  }
+
+  if (workoutMemberOptions !== null) {
+    fillOptions(workoutMemberOptions);
+    return;
+  }
+
+  loadWorkoutMemberOptionsFromApi().then(function (result) {
+    if (result.ok) {
+      workoutMemberOptions = result.options;
+      fillOptions(workoutMemberOptions);
+      return;
+    }
+
+    fillOptions(getMemberOptions());
+  });
 }
 
 function createExerciseRow(exercise) {
@@ -643,9 +970,10 @@ function savePlanFromForm() {
 
   var session = getSession();
   var memberEmail = document.getElementById("pMember").value.trim();
-  var plans = getWorkoutPlans();
+  var existingPlan = editingPlanId ? getPlanById(editingPlanId) : null;
   var planData = {
     id: editingPlanId || generateId(),
+    apiId: existingPlan ? existingPlan.apiId : null,
     memberEmail: memberEmail,
     planName: document.getElementById("pName").value.trim(),
     trainerName: session ? session.name : "Trainer",
@@ -653,33 +981,39 @@ function savePlanFromForm() {
     days: days
   };
 
-  var replaced = false;
-  for (var i = 0; i < plans.length; i++) {
-    if (plans[i].id === planData.id) {
-      plans[i] = planData;
-      replaced = true;
-      break;
-    }
-  }
+  var isEdit = !!editingPlanId;
 
-  if (!replaced) {
-    plans = plans.filter(function (p) {
-      return normalizeWorkoutEmail(p.memberEmail) !== normalizeWorkoutEmail(memberEmail);
+  if (workoutsApiAvailable) {
+    saveWorkoutWithApi(planData, isEdit).then(function (result) {
+      if (result.ok) {
+        closePlanModal();
+        renderWorkoutPlansList();
+        showToast(isEdit ? "Workout plan updated" : "Workout plan created", "success");
+        return;
+      }
+
+      if (result.usedFallback) {
+        saveWorkoutLocally(planData, isEdit);
+        closePlanModal();
+        renderWorkoutPlansList();
+        showToast("Server unavailable. Workout saved locally only.", "info");
+        return;
+      }
+
+      showToast(result.message || "Could not save workout plan.", "error");
     });
-    plans.push(planData);
+    return;
   }
 
-  saveWorkoutPlans(plans);
+  saveWorkoutLocally(planData, isEdit);
   closePlanModal();
   renderWorkoutPlansList();
-  showToast(editingPlanId ? "Workout plan updated" : "Workout plan created", "success");
+  showToast(isEdit ? "Workout plan updated" : "Workout plan created", "success");
 }
 
 // ---------- PAGE INIT ----------
 
-function initWorkoutPage() {
-  seedWorkoutsIfEmpty();
-
+function initWorkoutPageUi() {
   var session = getSession();
   if (!session) return;
 
@@ -713,6 +1047,14 @@ function initWorkoutPage() {
     document.getElementById("trainerWorkoutView").style.display = "none";
     renderWorkoutProgram();
   }
+}
+
+function initWorkoutPage() {
+  seedWorkoutsIfEmpty();
+
+  loadWorkoutsWithFallback().then(function () {
+    initWorkoutPageUi();
+  });
 }
 
 seedWorkoutsIfEmpty();
