@@ -44,6 +44,7 @@ S.H.A.M.E Gym is a software engineering course project that models day-to-day op
 | Finance | Income/expense ledger and summaries (admin) |
 | Polls | Confidential voting with anonymous ballots |
 | WhatsApp analysis | Import `.txt` chat exports and activity summaries (admin) |
+| Legacy import | Bulk CSV member data import with validation and error logging (admin) |
 | Self-service | Profile edits and account activation |
 | Reporting | Role-aware dashboard statistics |
 
@@ -109,6 +110,7 @@ flowchart TB
         Fin[finance.html]
         Pol[polls.html]
         Wa[whatsapp.html]
+        Leg[legacy-import.html]
         Prf[profile.html]
     end
 
@@ -125,6 +127,7 @@ flowchart TB
         A10[api/finance/]
         A11[api/polls/]
         A12[api/whatsapp/]
+        A15[api/import/]
         A13[api/profile/]
         A14[api/users/]
     end
@@ -149,6 +152,8 @@ flowchart TB
         T17[whatsapp_imports]
         T18[whatsapp_messages]
         T19[whatsapp_analysis_summary]
+        T20[import_batches]
+        T21[import_errors]
     end
 
     AuthP --> A1 --> T1
@@ -171,6 +176,9 @@ flowchart TB
     Wa --> A12 --> T17
     Wa --> A12 --> T18
     Wa --> A12 --> T19
+    Leg --> A15 --> T2
+    Leg --> A15 --> T20
+    Leg --> A15 --> T21
     Prf --> A13 --> T1
     Mem --> A14 --> T1
     Mtg --> A14 --> T1
@@ -185,8 +193,9 @@ flowchart TB
 | Meetings | Internal staff coordination (admin only) |
 | Documents | Shared files with role-based access rules |
 | Finance | Organization income and expense tracking (admin only) |
-| Polls | Confidential organization ballots |
+| Polls | Confidential organization ballots and admin CSV results export |
 | WhatsApp | Parsed chat export analytics (admin only; no WhatsApp API) |
+| Legacy import | CSV preview/import for ~4000 legacy member records (admin only; no login accounts created) |
 
 ---
 
@@ -256,15 +265,16 @@ Page navigation and API endpoints both enforce the same role rules.
 | Meetings | Full access | No access | No access |
 | Documents | Upload, edit, archive, download | View/download allowed docs | View/download allowed docs |
 | Finance | Full access | No access | No access |
-| Polls | Create, close, results | Vote once, view allowed results | Vote once, view allowed results |
+| Polls | Create, close, results, CSV export | Vote once, view allowed results | Vote once, view allowed results |
 | WhatsApp analysis | Full access | No access | No access |
+| Legacy import | Preview and import CSV member records | No access | No access |
 | Account activation | Yes | Yes | Yes |
 
 **Role summaries**
 
 | Role | Typical tasks |
 |------|---------------|
-| **Admin** | Manage members, trainers, classes, workouts, meetings, documents, finance, polls, and WhatsApp imports |
+| **Admin** | Manage members, trainers, classes, workouts, meetings, documents, finance, polls, WhatsApp imports, and legacy CSV imports |
 | **Trainer** | View assigned members, create workout plans, view class rosters, vote in polls, download shared documents |
 | **Member** | Enroll in classes, follow workout program, edit own profile, vote in polls, download shared documents |
 
@@ -277,7 +287,7 @@ Page navigation and API endpoints both enforce the same role rules.
 | **MySQL (`shame_gym_db`)** | Primary source of truth for all application records |
 | **PHP APIs** | Validate sessions, enforce roles, read/write database with PDO |
 | **PHP session** | Server-side authentication state |
-| **Upload folders** | Document files and WhatsApp export files on disk |
+| **Upload folders** | Document files, WhatsApp export files, and stored legacy CSV imports on disk |
 | **localStorage** | Not the primary database |
 
 localStorage is used only for:
@@ -287,7 +297,7 @@ localStorage is used only for:
 - Seed/bootstrap data on first load
 - Emergency fallback when the API is unreachable
 
-Documents, finance, polls, and WhatsApp modules are API-first and do not persist data in localStorage.
+Documents, finance, polls, WhatsApp, and legacy import modules are API-first and do not persist data in localStorage.
 
 Normal create, update, delete, and list operations go through PHP and MySQL.
 
@@ -329,13 +339,14 @@ Document uploads and WhatsApp imports store files on disk under:
 ```
 uploads/documents/
 uploads/whatsapp/
+uploads/import/
 ```
 
 Create the folders and make them writable by the Apache user on local XAMPP:
 
 ```bash
-mkdir -p uploads/documents uploads/whatsapp
-chmod 0777 uploads/documents uploads/whatsapp
+mkdir -p uploads/documents uploads/whatsapp uploads/import
+chmod 0777 uploads/documents uploads/whatsapp uploads/import
 ```
 
 Notes:
@@ -345,6 +356,7 @@ Notes:
 - On macOS XAMPP, Apache typically runs as the `daemon` user and needs write permission on these folders
 - Document uploads accept PDF, DOC, DOCX, TXT, PNG, JPG, and JPEG (max 10 MB)
 - WhatsApp imports accept `.txt` export files only (max 10 MB)
+- Legacy CSV imports accept `.csv` files only (max 5 MB)
 - This permission setup is intended for local XAMPP development
 
 ---
@@ -410,12 +422,21 @@ Notes:
 | `whatsapp_messages` | Parsed chat messages |
 | `whatsapp_analysis_summary` | Precomputed dashboard metrics per import |
 
-### Legacy bulk import (schema only)
+### Legacy bulk import
 
 | Table | Purpose |
 |-------|---------|
-| `import_batches` | Bulk legacy import tracking |
-| `import_errors` | Rejected import rows |
+| `import_batches` | Bulk legacy CSV import history and counts |
+| `import_errors` | Rejected import rows with validation messages |
+
+Sample CSV files for testing:
+
+| File | Purpose |
+|------|---------|
+| `sample_data/legacy_members_4000_sample.csv` | 4000 valid synthetic member rows plus header |
+| `sample_data/legacy_members_validation_sample.csv` | Mixed valid/invalid rows for preview and error logging demos |
+
+Legacy import inserts cleaned rows into `members` only. It does **not** create login accounts in `users`.
 
 ---
 
@@ -568,8 +589,9 @@ All endpoints return JSON. Protected routes require a valid PHP session cookie.
 | `api/meetings/` | Staff meetings and attendee management | `meetings`, `meeting_attendees` |
 | `api/documents/` | Upload, list, search, download, archive | `documents`, `document_access` |
 | `api/finance/` | Transactions, summary (admin only) | `finance_transactions` |
-| `api/polls/` | Poll CRUD, vote, results | `polls`, `poll_options`, `votes`, `vote_receipts` |
+| `api/polls/` | Poll CRUD, vote, results, CSV export (admin) | `polls`, `poll_options`, `votes`, `vote_receipts` |
 | `api/whatsapp/` | Import, messages, summary (admin only) | `whatsapp_imports`, `whatsapp_messages`, `whatsapp_analysis_summary` |
+| `api/import/` | Legacy CSV preview, run import, batch history, errors (admin only) | `import_batches`, `import_errors`, `members` |
 | `api/users/` | Staff user list for meeting attendees; account provisioning | `users` |
 | `api/config/` | Shared database, auth, request, and response helpers | — |
 
@@ -593,6 +615,7 @@ Shared PHP helpers include `requireLogin()`, `requireRole()`, `successResponse()
 | Finance | `finance.html` | `api/finance/*` |
 | Polls | `polls.html` | `api/polls/*` |
 | WhatsApp analysis | `whatsapp.html` | `api/whatsapp/*` |
+| Legacy import | `legacy-import.html` | `api/import/*` |
 
 ---
 
@@ -674,7 +697,11 @@ Passwords match `database/seed.sql`.
 - [ ] Create a poll as admin, vote once as member, confirm duplicate vote is blocked
 - [ ] View poll results after voting or after poll is closed
 - [ ] Import a WhatsApp `.txt` export as admin, view summary and search parsed messages
-- [ ] Confirm member receives HTTP 403 on finance and WhatsApp APIs
+- [ ] Preview `sample_data/legacy_members_validation_sample.csv` and confirm invalid/duplicate rows are reported
+- [ ] Run legacy import on the validation sample and confirm valid rows insert into `members` while errors log to `import_errors`
+- [ ] Preview and import `sample_data/legacy_members_4000_sample.csv`, verify 4000 members inserted and no `users` accounts created for `legacy.member*@example.com`
+- [ ] Export poll results CSV as admin and confirm no voter identity or vote tokens appear
+- [ ] Confirm member receives HTTP 403 on finance, WhatsApp, and legacy import APIs
 - [ ] Confirm trainer/member can access documents and polls according to role rules
 
 ---
@@ -691,7 +718,9 @@ Passwords match `database/seed.sql`.
 | Soft delete | Status fields (`inactive`, `cancelled`, `archived`, `is_available`) used where appropriate |
 | File uploads | Extension and MIME validation, size limits, safe stored filenames, no path traversal |
 | Confidential voting | `votes` stores anonymous tokens only; `vote_receipts` prevents duplicates without revealing choices |
-| Admin-only modules | Finance and WhatsApp endpoints require `requireRole('admin')` |
+| Admin-only modules | Finance, WhatsApp, and legacy import endpoints require `requireRole('admin')` |
+| Poll results export | CSV includes counts and percentages only; no `user_id`, email, or `anonymous_vote_token` |
+| Legacy import scope | Inserts member records only; does not create login accounts in `users` |
 | WhatsApp scope | Import-only from exported `.txt` files; no WhatsApp API integration |
 
 ---
@@ -705,7 +734,6 @@ Possible next steps beyond the current course scope:
 - UI polish and accessibility improvements
 - Production deployment hardening (HTTPS, stricter upload permissions, environment config)
 - Automated test suite for API endpoints
-- Legacy bulk import UI for `import_batches` / `import_errors`
 
 ---
 
@@ -724,11 +752,17 @@ shame-gym/
   finance.html            Finance ledger (admin)
   polls.html              Confidential polls and voting
   whatsapp.html           WhatsApp export analysis (admin)
+  legacy-import.html      Legacy member CSV import (admin)
   profile.html            Member profile self-edit
+
+  sample_data/
+    legacy_members_4000_sample.csv          4000-row demo import file
+    legacy_members_validation_sample.csv      Mixed valid/invalid demo rows
 
   uploads/
     documents/            Uploaded document files (.gitkeep only in repo)
     whatsapp/             Stored WhatsApp export files (.gitkeep only in repo)
+    import/               Stored legacy CSV import files (.gitkeep only in repo)
 
   css/                    Custom stylesheets
   js/                     Page logic and API integration
@@ -746,7 +780,7 @@ shame-gym/
 | `members.js`, `trainers.js`, `schedules.js` | CRUD pages |
 | `enrollments.js` | Class enrollment logic |
 | `workouts.js`, `meetings.js` | Workouts and meetings |
-| `documents.js`, `finance.js`, `polls.js`, `whatsapp.js` | Sprint 3 modules |
+| `documents.js`, `finance.js`, `polls.js`, `whatsapp.js`, `legacy-import.js` | Sprint 3 modules |
 | `profile.js`, `dashboard.js` | Profile and dashboard |
 | `toast.js`, `phone.js` | Notifications and phone input |
 

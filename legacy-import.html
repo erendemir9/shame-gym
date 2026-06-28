@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S.H.A.M.E Gym — Legacy Import</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/premium.css" />
+  <link rel="stylesheet" href="css/motion.css" />
+
+  <script src="js/auth.js"></script>
+  <script>requireAuth(); requirePageAccess("legacy-import");</script>
+</head>
+<body>
+  <button type="button" class="btn btn-ghost btn-sm sidebar-toggle" id="sidebarToggle" aria-label="Open navigation menu">☰ Menu</button>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo.jpeg" alt="S.H.A.M.E logo" />
+        <span class="wordmark">S.H.A.M.E</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-user">
+        <div class="user-name" id="sidebarUserName">—</div>
+        <span class="badge badge-silver" id="sidebarUserRole">—</span>
+        <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:12px;">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main page-enter">
+      <div class="page-header">
+        <div>
+          <h1>Legacy Member Import</h1>
+          <p class="subtitle">Clean, validate, and import legacy member records from CSV spreadsheets. Login accounts are not created automatically.</p>
+        </div>
+      </div>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <h2 class="section-heading">Upload CSV</h2>
+        <p class="subtitle section-lead">Use the sample files in <code>sample_data/</code> for testing. Preview before running the import.</p>
+        <form id="legacyImportForm" novalidate enctype="multipart/form-data" style="margin-top:16px;">
+          <div class="field">
+            <label for="legacyCsvFile">Legacy member CSV</label>
+            <input type="file" id="legacyCsvFile" accept=".csv,text/csv" />
+            <span class="field-hint">CSV only, max 5 MB. Sample: <code>sample_data/legacy_members_4000_sample.csv</code></span>
+            <span class="field-error" id="legacyCsvFileError"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost" id="legacyPreviewBtn">Preview import</button>
+            <button type="button" class="btn btn-primary" id="legacyRunBtn">Run import</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <h2 class="section-heading">Expected CSV format</h2>
+        <p class="subtitle section-lead">Flexible headers are supported. Required columns: name and email.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Accepted headers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Name</td><td><code>full_name</code>, <code>name</code>, <code>member_name</code></td></tr>
+              <tr><td>Email</td><td><code>email</code>, <code>email_address</code></td></tr>
+              <tr><td>Phone</td><td><code>phone</code>, <code>phone_number</code>, <code>mobile</code></td></tr>
+              <tr><td>Membership</td><td><code>membership_type</code>, <code>membership</code>, <code>plan</code></td></tr>
+              <tr><td>Start date</td><td><code>start_date</code>, <code>join_date</code>, <code>registered_at</code></td></tr>
+              <tr><td>Trainer</td><td><code>assigned_trainer_id</code>, <code>trainer_id</code>, <code>assigned_trainer_email</code>, <code>trainer_email</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="legacyPreviewSection" class="card premium-panel" style="margin-bottom:20px;display:none;">
+        <h2 class="section-heading">Preview summary</h2>
+        <div class="stats-grid" style="margin-bottom:16px;">
+          <div class="stat-card"><div class="stat-label">Total rows</div><div class="stat-value" id="previewTotalRows">0</div></div>
+          <div class="stat-card"><div class="stat-label">Valid rows</div><div class="stat-value" id="previewValidRows">0</div></div>
+          <div class="stat-card"><div class="stat-label">Invalid rows</div><div class="stat-value" id="previewInvalidRows">0</div></div>
+          <div class="stat-card"><div class="stat-label">Duplicate rows</div><div class="stat-value" id="previewDuplicateRows">0</div></div>
+        </div>
+
+        <h3 class="section-heading" style="font-size:1rem;">Cleaned sample rows</h3>
+        <div class="table-wrap" style="margin-bottom:16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Membership</th>
+                <th>Start date</th>
+                <th>Trainer ID</th>
+              </tr>
+            </thead>
+            <tbody id="legacyCleanPreviewBody"></tbody>
+          </table>
+        </div>
+
+        <h3 class="section-heading" style="font-size:1rem;">Error preview</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Error</th>
+                <th>Raw data</th>
+              </tr>
+            </thead>
+            <tbody id="legacyErrorPreviewBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card premium-panel" style="margin-bottom:20px;">
+        <h2 class="section-heading">Import batch history</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Filename</th>
+                <th>Total</th>
+                <th>Imported</th>
+                <th>Errors</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="legacyBatchesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card premium-panel">
+        <h2 class="section-heading">Import error log</h2>
+        <p class="subtitle section-lead" id="legacyErrorsLead">Recent rejected rows from imports.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Row</th>
+                <th>Error</th>
+                <th>Raw data</th>
+                <th>Logged</th>
+              </tr>
+            </thead>
+            <tbody id="legacyErrorsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/toast.js"></script>
+  <script src="js/legacy-import.js?v=s3final"></script>
+  <script>
+    mountSidebar("legacy-import");
+    initLegacyImportPage();
+  </script>
+  <script src="js/ui-enhancements.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+full_name,email,phone,membership_type,start_date,assigned_trainer_email
+Valid Member One,valid.import1@example.com,+1 555 1001,Basic,2024-01-15,
+Valid Member Two,valid.import2@example.com,+1 555 1002,premium,15.03.2024,marcus.hale@shame.gym
+Valid Member Three,valid.import3@example.com,+1 555 1003,vip,03/06/2024,
+Duplicate Email Row,valid.import1@example.com,+1 555 1004,Basic,2024-02-01,
+,missing.name@example.com,+1 555 1005,Basic,2024-02-02,
+Missing Email Person,,+1 555 1006,Premium,2024-02-03,
+Bad Email Format,not-an-email,+1 555 1007,Basic,2024-02-04,
+Invalid Date Person,bad.date@example.com,+1 555 1008,Basic,2024-99-40,
+Unknown Plan Person,unknown.plan@example.com,+1 555 1009,platinum,2024-02-05,
+Invalid Trainer,bad.trainer@example.com,+1 555 1010,standard,2024-02-06,not.a.trainer@example.com
+Existing Seed Email,james.carter@email.com,+1 555 1011,Basic,2024-02-07,
+Inconsistent Membership,membership.test@example.com,+1 555 1012, STANDARD ,02/08/2024,nadia.petrova@shame.gym
+Another Valid Row,valid.import4@example.com,+1 555 1013,VIP,2024-02-09,tyler.brooks@shame.gym
+Duplicate In File Again,valid.import4@example.com,+1 555 1014,Basic,2024-02-10,

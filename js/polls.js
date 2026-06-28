@@ -8,6 +8,7 @@ var POLLS_UPDATE_API_URL = "api/polls/update.php";
 var POLLS_DELETE_API_URL = "api/polls/delete.php";
 var POLLS_VOTE_API_URL = "api/polls/vote.php";
 var POLLS_RESULTS_API_URL = "api/polls/results.php";
+var POLLS_EXPORT_API_URL = "api/polls/export.php";
 
 var pagePollList = [];
 
@@ -229,6 +230,12 @@ function renderPollCards() {
         });
       });
 
+      var exportBtn = document.createElement("a");
+      exportBtn.className = "btn btn-ghost btn-sm";
+      exportBtn.textContent = "Export Results CSV";
+      exportBtn.href = POLLS_EXPORT_API_URL + "?id=" + encodeURIComponent(poll.id);
+      exportBtn.setAttribute("download", "poll_results_" + poll.id + ".csv");
+
       var closeBtn = document.createElement("button");
       closeBtn.type = "button";
       closeBtn.className = "btn btn-ghost btn-sm";
@@ -239,6 +246,7 @@ function renderPollCards() {
       });
 
       actions.appendChild(resultsBtn);
+      actions.appendChild(exportBtn);
       actions.appendChild(closeBtn);
       card.appendChild(actions);
     }
