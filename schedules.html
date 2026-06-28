@@ -126,18 +126,28 @@
   </div>
 
   <script src="js/data.js"></script>
-  <script src="js/enrollments.js"></script>
+  <script src="js/enrollments.js?v=6b4"></script>
   <script src="js/toast.js"></script>
   <script src="js/schedules.js?v=6b3"></script>
   <script>
     mountSidebar("schedules"); // sidebar adapts to the role
     initSchedulePage();        // wire (admin) or strip (read-only) management UI
-    if (typeof loadClassesWithFallback === "function") {
-      loadClassesWithFallback();
-    } else {
-      console.warn("API class loader is not available. Falling back to renderSchedules().");
-      renderSchedules();
+
+    function startSchedulesPage() {
+      var enrollmentLoad = typeof loadEnrollmentsWithFallback === "function"
+        ? loadEnrollmentsWithFallback()
+        : Promise.resolve();
+
+      enrollmentLoad.then(function () {
+        if (typeof loadClassesWithFallback === "function") {
+          loadClassesWithFallback();
+        } else {
+          renderSchedules();
+        }
+      });
     }
+
+    startSchedulesPage();
   </script>
   <script src="js/ui-enhancements.js"></script>
 </body>
