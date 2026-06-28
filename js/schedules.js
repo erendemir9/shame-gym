@@ -1,9 +1,102 @@
 /* ============================================================
    schedules.js — class schedule management (IAP-43).
-   Same pattern as the other pages. Extra detail: the trainer dropdown
-   is filled from the trainers saved in localStorage, so it always
-   matches the current coaching team.
+   Read/list view loads from api/classes/list.php with localStorage fallback.
+   Add/edit/delete and enrollments still use localStorage until later parts.
    ============================================================ */
+
+var CLASSES_API_URL = "api/classes/list.php";
+
+// Classes currently shown on the page (null until first load finishes).
+var pageClassList = null;
+
+// ---------- API READ HELPERS ----------
+
+function mapApiClassToFrontendSchedule(apiClass) {
+  return {
+    id: "s" + apiClass.id,
+    className: apiClass.class_name,
+    trainerName: apiClass.trainer_name,
+    date: apiClass.class_date,
+    time: apiClass.class_time ? apiClass.class_time.substring(0, 5) : "",
+    duration: apiClass.duration_minutes,
+    capacity: apiClass.capacity,
+    enrolledCount: typeof apiClass.enrolled_count === "number" ? apiClass.enrolled_count : 0,
+    status: apiClass.status || "scheduled"
+  };
+}
+
+function loadClassesFromApi() {
+  return fetch(CLASSES_API_URL, {
+    method: "GET",
+    credentials: "same-origin"
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response."
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not load classes."
+          };
+        }
+
+        var apiClasses = data.data && data.data.classes ? data.data.classes : [];
+        var mappedClasses = apiClasses.map(mapApiClassToFrontendSchedule);
+
+        return {
+          ok: true,
+          classes: mappedClasses
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error."
+      };
+    });
+}
+
+function loadClassesWithFallback() {
+  return loadClassesFromApi().then(function (result) {
+    if (result.ok) {
+      pageClassList = result.classes;
+      renderSchedules();
+      return;
+    }
+
+    console.warn("Classes API unavailable:", result.message);
+    pageClassList = getSchedules();
+
+    if (typeof showToast === "function") {
+      showToast("Could not load classes from server. Showing saved local data.", "info");
+    }
+
+    renderSchedules();
+  });
+}
+
+function refreshSchedulesFromLocalStorage() {
+  pageClassList = getSchedules();
+  renderSchedules();
+}
+
+function getEnrollmentCountForSchedule(item) {
+  if (typeof item.enrolledCount === "number") {
+    return item.enrolledCount;
+  }
+  return getEnrollmentCount(item.id);
+}
 
 function showFieldError(input, errorEl, message) {
   errorEl.textContent = message;
@@ -74,7 +167,7 @@ function getLoggedInTrainerName() {
 }
 
 function getSchedulesForView() {
-  var schedules = getSchedules();
+  var schedules = pageClassList !== null ? pageClassList : getSchedules();
   if (!isTrainerView()) return schedules;
 
   var trainerName = getLoggedInTrainerName();
@@ -137,7 +230,7 @@ function configureScheduleTableHeaders() {
 
 function renderScheduleRow(item) {
   var tr = document.createElement("tr");
-  var enrolled = getEnrollmentCount(item.id);
+  var enrolled = getEnrollmentCountForSchedule(item);
   var session = getSession();
 
   tr.appendChild(textCell(item.className));
@@ -437,7 +530,7 @@ function saveClass() {
     }
     saveSchedules(schedules);
     closeClassModal();
-    renderSchedules();
+    refreshSchedulesFromLocalStorage();
     showToast("Class updated successfully", "success");
     return;
   }
@@ -447,7 +540,7 @@ function saveClass() {
   saveSchedules(schedules);
 
   closeClassModal();
-  renderSchedules();
+  refreshSchedulesFromLocalStorage();
   showToast("Class created successfully", "success");
 }
 
@@ -460,7 +553,7 @@ function deleteClass(item) {
 
   saveSchedules(getSchedules().filter(function (schedule) { return schedule.id !== item.id; }));
   removeEnrollmentsForClass(item.id);
-  renderSchedules();
+  refreshSchedulesFromLocalStorage();
   showToast("Class deleted", "info");
 }
 
