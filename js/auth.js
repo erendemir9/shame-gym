@@ -33,7 +33,7 @@ var PERMISSIONS = {
   admin: {
     label: "Administrator",
     badgeClass: "badge-blue",
-    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance"],
+    nav: ["dashboard", "members", "trainers", "schedules", "workouts", "meetings", "documents", "finance", "polls"],
     manageMembers: true,
     manageTrainers: true,
     manageSchedules: true,
@@ -45,7 +45,7 @@ var PERMISSIONS = {
   trainer: {
     label: "Trainer",
     badgeClass: "badge-silver",
-    nav: ["dashboard", "members", "schedules", "workouts", "documents"],
+    nav: ["dashboard", "members", "schedules", "workouts", "documents", "polls"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
@@ -57,7 +57,7 @@ var PERMISSIONS = {
   member: {
     label: "Member",
     badgeClass: "badge-purple",
-    nav: ["dashboard", "schedules", "workouts", "documents", "profile"],
+    nav: ["dashboard", "schedules", "workouts", "documents", "polls", "profile"],
     manageMembers: false,
     manageTrainers: false,
     manageSchedules: false,
@@ -77,6 +77,7 @@ var NAV_LINKS = [
   { key: "meetings",  label: "Meetings",  href: "meetings.html" },
   { key: "documents", label: "Documents", href: "documents.html" },
   { key: "finance",   label: "Finance",   href: "finance.html" },
+  { key: "polls",     label: "Polls",     href: "polls.html" },
   { key: "profile",   label: "My Profile", href: "profile.html" }
 ];
 

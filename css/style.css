@@ -1195,3 +1195,45 @@ tbody tr:hover { background-color: var(--bg-hover); } /* row hover */
   .main { margin-left: 0; width: 100%; padding: var(--space-2); }
   .app { flex-direction: column; }
 }
+
+/* Polls */
+.polls-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.poll-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+.poll-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.poll-option-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.poll-option-choice:hover {
+  background: var(--bg-hover);
+}
+.poll-result-row + .poll-result-row {
+  margin-top: 12px;
+}
+.poll-result-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
