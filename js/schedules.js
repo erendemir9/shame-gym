@@ -1,10 +1,14 @@
 /* ============================================================
    schedules.js — class schedule management (IAP-43).
    Read/list view loads from api/classes/list.php with localStorage fallback.
-   Add/edit/delete and enrollments still use localStorage until later parts.
+   Create/update/delete use PHP APIs with localStorage emergency fallback.
+   Enrollments still use localStorage until later parts.
    ============================================================ */
 
 var CLASSES_API_URL = "api/classes/list.php";
+var CLASSES_CREATE_API_URL = "api/classes/create.php";
+var CLASSES_UPDATE_API_URL = "api/classes/update.php";
+var CLASSES_DELETE_API_URL = "api/classes/delete.php";
 
 // Classes currently shown on the page (null until first load finishes).
 var pageClassList = null;
@@ -89,6 +93,210 @@ function loadClassesWithFallback() {
 function refreshSchedulesFromLocalStorage() {
   pageClassList = getSchedules();
   renderSchedules();
+}
+
+// ---------- API WRITE HELPERS ----------
+
+function resolveTrainerIdFromName(trainerName) {
+  if (!trainerName || trainerName.trim() === "") {
+    return null;
+  }
+
+  var trainers = getTrainers();
+  for (var i = 0; i < trainers.length; i++) {
+    if (trainers[i].name === trainerName) {
+      var match = String(trainers[i].id).match(/^t(\d+)$/);
+      if (match) return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function mapFrontendScheduleToApiPayload(classData) {
+  var trainerId = resolveTrainerIdFromName(classData.trainerName);
+  var apiPayload = {
+    class_name: classData.className,
+    trainer_id: trainerId,
+    class_date: classData.date,
+    class_time: classData.time,
+    duration_minutes: classData.duration,
+    capacity: classData.capacity,
+    status: "scheduled"
+  };
+
+  if (classData.id) {
+    apiPayload.id = classData.id;
+  }
+
+  return apiPayload;
+}
+
+function normalizeClassApiResponse(apiClass) {
+  return mapApiClassToFrontendSchedule(apiClass);
+}
+
+function callClassWriteApi(url, apiPayload) {
+  return fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(apiPayload)
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Request failed.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Success",
+          classItem: data.data && data.data.class
+            ? normalizeClassApiResponse(data.data.class)
+            : null,
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function createClassWithApi(classData) {
+  return callClassWriteApi(
+    CLASSES_CREATE_API_URL,
+    mapFrontendScheduleToApiPayload(classData)
+  );
+}
+
+function updateClassWithApi(classData) {
+  return callClassWriteApi(
+    CLASSES_UPDATE_API_URL,
+    mapFrontendScheduleToApiPayload(classData)
+  );
+}
+
+function deleteClassFromApi(classId) {
+  return fetch(CLASSES_DELETE_API_URL, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: classId })
+  })
+    .then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          return {
+            ok: false,
+            message: "Invalid server response.",
+            networkError: false
+          };
+        }
+
+        if (!response.ok || !data.success) {
+          return {
+            ok: false,
+            message: data.message || "Could not delete class.",
+            networkError: false
+          };
+        }
+
+        return {
+          ok: true,
+          message: data.message || "Class deleted successfully",
+          networkError: false
+        };
+      });
+    })
+    .catch(function () {
+      return {
+        ok: false,
+        message: "Network error.",
+        networkError: true
+      };
+    });
+}
+
+function saveClassWithApi(classData, isEdit) {
+  var apiCall = isEdit ? updateClassWithApi(classData) : createClassWithApi(classData);
+
+  return apiCall.then(function (result) {
+    if (result.ok) {
+      return result;
+    }
+
+    if (result.networkError) {
+      saveClassToLocalStorage(classData, isEdit);
+      return {
+        ok: true,
+        localOnly: true,
+        message: "Server unavailable. Saved locally only."
+      };
+    }
+
+    return result;
+  });
+}
+
+function saveClassToLocalStorage(classData, isEdit) {
+  var schedules = getSchedules();
+
+  if (isEdit) {
+    for (var i = 0; i < schedules.length; i++) {
+      if (schedules[i].id === classData.id) {
+        schedules[i].className = classData.className;
+        schedules[i].trainerName = classData.trainerName;
+        schedules[i].date = classData.date;
+        schedules[i].time = classData.time;
+        schedules[i].duration = classData.duration;
+        schedules[i].capacity = classData.capacity;
+        break;
+      }
+    }
+    saveSchedules(schedules);
+    return;
+  }
+
+  classData.id = generateId();
+  schedules.push(classData);
+  saveSchedules(schedules);
+}
+
+function deleteClassToLocalStorage(item) {
+  saveSchedules(getSchedules().filter(function (schedule) {
+    return schedule.id !== item.id;
+  }));
+  removeEnrollmentsForClass(item.id);
 }
 
 function getEnrollmentCountForSchedule(item) {
@@ -297,7 +505,7 @@ function renderScheduleRow(item) {
     deleteBtn.className = "btn btn-ghost btn-sm";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", function () {
-      deleteClass(item);
+      confirmDeleteClass(item);
     });
 
     adminActionsTd.appendChild(editBtn);
@@ -506,6 +714,7 @@ function saveClass() {
   if (!validateClassForm()) return;
 
   var classData = {
+    id: editingClassId,
     className: document.getElementById("cName").value.trim(),
     trainerName: document.getElementById("cTrainer").value,
     date: document.getElementById("cDate").value,
@@ -514,47 +723,82 @@ function saveClass() {
     capacity: Number(document.getElementById("cCapacity").value)
   };
 
-  var schedules = getSchedules();
-
-  if (editingClassId) {
-    for (var i = 0; i < schedules.length; i++) {
-      if (schedules[i].id === editingClassId) {
-        schedules[i].className = classData.className;
-        schedules[i].trainerName = classData.trainerName;
-        schedules[i].date = classData.date;
-        schedules[i].time = classData.time;
-        schedules[i].duration = classData.duration;
-        schedules[i].capacity = classData.capacity;
-        break;
-      }
-    }
-    saveSchedules(schedules);
-    closeClassModal();
-    refreshSchedulesFromLocalStorage();
-    showToast("Class updated successfully", "success");
+  if (!resolveTrainerIdFromName(classData.trainerName)) {
+    showFieldError(
+      document.getElementById("cTrainer"),
+      document.getElementById("cTrainerError"),
+      "Choose a valid trainer."
+    );
     return;
   }
 
-  classData.id = generateId();
-  schedules.push(classData);
-  saveSchedules(schedules);
+  var isEdit = !!editingClassId;
 
-  closeClassModal();
-  refreshSchedulesFromLocalStorage();
-  showToast("Class created successfully", "success");
+  saveClassWithApi(classData, isEdit).then(function (result) {
+    if (!result.ok) {
+      console.warn("Class save failed:", result.message);
+      if (typeof showToast === "function") {
+        showToast(result.message, "error");
+      }
+      return;
+    }
+
+    closeClassModal();
+
+    if (result.localOnly) {
+      refreshSchedulesFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast(result.message, "info");
+      }
+      return;
+    }
+
+    if (typeof showToast === "function") {
+      showToast(result.message, "success");
+    }
+
+    loadClassesWithFallback();
+  });
 }
 
-function deleteClass(item) {
-  var enrolled = getEnrollmentCount(item.id);
-  var message = enrolled
-    ? "Delete " + item.className + "? " + enrolled + " member(s) are enrolled and will be unenrolled."
-    : "Delete " + item.className + "?";
-  if (!confirm(message)) return;
+function handleDeleteClass(item) {
+  deleteClassFromApi(item.id).then(function (result) {
+    if (result.ok) {
+      if (typeof showToast === "function") {
+        showToast(result.message, "success");
+      }
+      loadClassesWithFallback();
+      return;
+    }
 
-  saveSchedules(getSchedules().filter(function (schedule) { return schedule.id !== item.id; }));
-  removeEnrollmentsForClass(item.id);
-  refreshSchedulesFromLocalStorage();
-  showToast("Class deleted", "info");
+    if (result.networkError) {
+      deleteClassToLocalStorage(item);
+      refreshSchedulesFromLocalStorage();
+      if (typeof showToast === "function") {
+        showToast("Server unavailable. Saved locally only.", "info");
+      }
+      return;
+    }
+
+    console.warn("Class delete failed:", result.message);
+    if (typeof showToast === "function") {
+      showToast(result.message, "error");
+    }
+  });
+}
+
+function confirmDeleteClass(item) {
+  var enrolled = getEnrollmentCountForSchedule(item);
+  var message = "Are you sure you want to cancel this class?";
+  if (enrolled > 0) {
+    message += " " + enrolled + " member(s) are enrolled.";
+  }
+
+  if (!confirm(message)) {
+    return;
+  }
+
+  handleDeleteClass(item);
 }
 
 function initSchedulePage() {

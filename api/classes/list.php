@@ -53,7 +53,14 @@ try {
     }
 
     $statusFilter = getQueryString('status');
-    if ($statusFilter !== null) {
+    if ($statusFilter === null) {
+        $sql .= ' AND c.status = :status';
+        $params['status'] = 'scheduled';
+    } elseif ($statusFilter === 'all') {
+        if ($role !== 'admin') {
+            errorResponse('You do not have permission to view all class statuses.', 403);
+        }
+    } else {
         $allowedStatuses = ['scheduled', 'cancelled', 'completed'];
         if (!in_array($statusFilter, $allowedStatuses, true)) {
             errorResponse('Invalid status filter.', 400);
